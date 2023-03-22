@@ -53,7 +53,8 @@ contract EtomicSwap {
         address _receiver,
         bytes20 _secretHash,
         uint64 _lockTime,
-        uint256 _watcherReward
+        uint256 _watcherReward,
+        bool _refundOnlyReward
     ) external payable {
         require(_receiver != address(0) && msg.value > 0 && payments[_id].state == PaymentState.Uninitialized);
 
@@ -63,7 +64,8 @@ contract EtomicSwap {
                 _secretHash,
                 address(0),
                 msg.value,
-                _watcherReward
+                _watcherReward,
+                _refundOnlyReward
             ));
 
         payments[_id] = Payment(
@@ -111,7 +113,8 @@ contract EtomicSwap {
         address _receiver,
         bytes20 _secretHash,
         uint64 _lockTime,
-        uint256 _watcherReward
+        uint256 _watcherReward,
+        bool _refundOnlyReward
     ) external payable {
         require(_receiver != address(0) && _amount > 0 && payments[_id].state == PaymentState.Uninitialized);
 
@@ -121,7 +124,8 @@ contract EtomicSwap {
                 _secretHash,
                 _tokenAddress,
                 _amount,
-                _watcherReward
+                _watcherReward,
+                _refundOnlyReward
             ));
 
         payments[_id] = Payment(
@@ -171,7 +175,8 @@ contract EtomicSwap {
         address _tokenAddress,
         address _sender,
         address _receiver,
-        uint256 _watcherReward
+        uint256 _watcherReward,
+        bool _refundOnlyReward
     ) external {
         payments[0].state = PaymentState.ReceiverSpent;
         require(payments[_id].state == PaymentState.PaymentSent);
@@ -182,7 +187,8 @@ contract EtomicSwap {
                 ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
                 _tokenAddress,
                 _amount,
-                _watcherReward
+                _watcherReward,
+                _refundOnlyReward
             ));
 
         require(paymentHash == payments[_id].paymentHash);
@@ -190,11 +196,19 @@ contract EtomicSwap {
 
         if (_tokenAddress == address(0)) {
             payable(_receiver).transfer(_amount - _watcherReward);
-            payable(msg.sender).transfer(_watcherReward);
+            if (_refundOnlyReward) {
+                payable(_sender).transfer(_watcherReward);
+            } else {
+                payable(msg.sender).transfer(_watcherReward);
+            }
         } else {
             IERC20 token = IERC20(_tokenAddress);
             require(token.transfer(_receiver, _amount - _watcherReward));
-            require(token.transfer(msg.sender, _watcherReward));
+            if (_refundOnlyReward) {
+                require(token.transfer(_sender, _watcherReward));
+            } else {
+                require(token.transfer(msg.sender, _watcherReward));
+            }
         }
         
         emit ReceiverSpent(_id, _secret);
@@ -238,7 +252,8 @@ contract EtomicSwap {
         address _tokenAddress,
         address _sender,
         address _receiver,
-        uint256 _watcherReward
+        uint256 _watcherReward,
+        bool _refundOnlyReward
     ) external {
         require(payments[_id].state == PaymentState.PaymentSent);
 
@@ -248,7 +263,8 @@ contract EtomicSwap {
                 _paymentHash,
                 _tokenAddress,
                 _amount,
-                _watcherReward
+                _watcherReward,
+                _refundOnlyReward
             ));
 
         require(paymentHash == payments[_id].paymentHash && block.timestamp >= payments[_id].lockTime);
