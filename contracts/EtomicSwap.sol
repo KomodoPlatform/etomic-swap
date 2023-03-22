@@ -110,7 +110,8 @@ contract EtomicSwap {
         address _tokenAddress,
         address _receiver,
         bytes20 _secretHash,
-        uint64 _lockTime
+        uint64 _lockTime,
+        uint256 _watcherReward
     ) external payable {
         require(_receiver != address(0) && _amount > 0 && payments[_id].state == PaymentState.Uninitialized);
 
@@ -120,7 +121,7 @@ contract EtomicSwap {
                 _secretHash,
                 _tokenAddress,
                 _amount,
-                msg.value
+                _watcherReward
             ));
 
         payments[_id] = Payment(
@@ -172,6 +173,7 @@ contract EtomicSwap {
         address _receiver,
         uint256 _watcherReward
     ) external {
+        payments[0].state = PaymentState.ReceiverSpent;
         require(payments[_id].state == PaymentState.PaymentSent);
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
@@ -188,12 +190,13 @@ contract EtomicSwap {
 
         if (_tokenAddress == address(0)) {
             payable(_receiver).transfer(_amount - _watcherReward);
+            payable(msg.sender).transfer(_watcherReward);
         } else {
             IERC20 token = IERC20(_tokenAddress);
-            require(token.transfer(_receiver, _amount));
+            require(token.transfer(_receiver, _amount - _watcherReward));
+            require(token.transfer(msg.sender, _watcherReward));
         }
-        payable(msg.sender).transfer(_watcherReward);
-
+        
         emit ReceiverSpent(_id, _secret);
     }
 
@@ -254,11 +257,12 @@ contract EtomicSwap {
 
         if (_tokenAddress == address(0)) {
             payable(_sender).transfer(_amount - _watcherReward);
+            payable(msg.sender).transfer(_watcherReward);
         } else {
             IERC20 token = IERC20(_tokenAddress);
-            require(token.transfer(_sender, _amount));
+            require(token.transfer(_sender, _amount - _watcherReward));
+            require(token.transfer(msg.sender, _watcherReward));
         }
-        payable(msg.sender).transfer(_watcherReward);
 
         emit SenderRefunded(_id);
     }
