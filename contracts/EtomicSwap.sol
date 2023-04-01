@@ -9,6 +9,13 @@ contract EtomicSwap {
         SenderRefunded
     }
 
+    enum RewardTargetOnSpend {
+        None,
+        Contract,
+        RewardSender,
+        PaymentSpender
+    }
+
     struct Payment {
         bytes20 paymentHash;
         uint64 lockTime;
@@ -53,8 +60,9 @@ contract EtomicSwap {
         address _receiver,
         bytes20 _secretHash,
         uint64 _lockTime,
-        uint256 _watcherReward,
-        bool _refundOnlyReward
+        RewardTargetOnSpend _rewardTarget,
+        bool _sendsReward,
+        uint256 _rewardAmount
     ) external payable {
         require(_receiver != address(0) && msg.value > 0 && payments[_id].state == PaymentState.Uninitialized);
 
@@ -64,8 +72,9 @@ contract EtomicSwap {
                 _secretHash,
                 address(0),
                 msg.value,
-                _watcherReward,
-                _refundOnlyReward
+                _rewardTarget,
+                _sendsReward,
+                _rewardAmount
             ));
 
         payments[_id] = Payment(
@@ -113,10 +122,15 @@ contract EtomicSwap {
         address _receiver,
         bytes20 _secretHash,
         uint64 _lockTime,
-        uint256 _watcherReward,
-        bool _refundOnlyReward
+        RewardTargetOnSpend _rewardTarget,
+        bool _sendsReward,
+        uint256 _rewardAmount
     ) external payable {
         require(_receiver != address(0) && _amount > 0 && payments[_id].state == PaymentState.Uninitialized);
+
+        if (_rewardTarget != RewardTargetOnSpend.None) {
+            require(msg.value == _rewardAmount);
+        }
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
                 _receiver,
@@ -124,8 +138,9 @@ contract EtomicSwap {
                 _secretHash,
                 _tokenAddress,
                 _amount,
-                _watcherReward,
-                _refundOnlyReward
+                _rewardTarget,
+                _sendsReward,
+                _rewardAmount
             ));
 
         payments[_id] = Payment(
@@ -136,6 +151,7 @@ contract EtomicSwap {
 
         IERC20 token = IERC20(_tokenAddress);
         require(token.transferFrom(msg.sender, address(this), _amount));
+
         emit PaymentSent(_id);
     }
 
@@ -175,11 +191,11 @@ contract EtomicSwap {
         address _tokenAddress,
         address _sender,
         address _receiver,
-        uint256 _watcherReward,
-        bool _refundOnlyReward
+        RewardTargetOnSpend _rewardTarget,
+        bool _sendsReward,
+        uint256 _rewardAmount
     ) external {
-        payments[0].state = PaymentState.ReceiverSpent;
-        require(payments[_id].state == PaymentState.PaymentSent);
+        require(payments[_id].state == PaymentState.PaymentSent, "Payment was not sent");
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
                 _receiver,
@@ -187,28 +203,30 @@ contract EtomicSwap {
                 ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
                 _tokenAddress,
                 _amount,
-                _watcherReward,
-                _refundOnlyReward
+                _rewardTarget,
+                _sendsReward,
+                _rewardAmount
             ));
 
-        require(paymentHash == payments[_id].paymentHash);
+        require(paymentHash == payments[_id].paymentHash, "Invalid payment hash");
         payments[_id].state = PaymentState.ReceiverSpent;
 
         if (_tokenAddress == address(0)) {
-            payable(_receiver).transfer(_amount - _watcherReward);
-            if (_refundOnlyReward) {
-                payable(_sender).transfer(_watcherReward);
-            } else {
-                payable(msg.sender).transfer(_watcherReward);
-            }
+            uint256 transferAmount = _rewardTarget == RewardTargetOnSpend.None ? _amount : _amount - _rewardAmount;
+            payable(_receiver).transfer(transferAmount);
         } else {
             IERC20 token = IERC20(_tokenAddress);
-            require(token.transfer(_receiver, _amount - _watcherReward));
-            if (_refundOnlyReward) {
-                require(token.transfer(_sender, _watcherReward));
-            } else {
-                require(token.transfer(msg.sender, _watcherReward));
-            }
+            require(token.transfer(_receiver, _amount), "Token transfer failed");
+        }
+
+        if (_rewardTarget == RewardTargetOnSpend.RewardSender) {
+            payable(_sender).transfer(_rewardAmount);
+        } else  if (_rewardTarget == RewardTargetOnSpend.PaymentSpender) {
+            payable(msg.sender).transfer(_rewardAmount);
+        } 
+
+        if (_sendsReward) {
+            payable(msg.sender).transfer(_rewardAmount);
         }
         
         emit ReceiverSpent(_id, _secret);
@@ -252,8 +270,9 @@ contract EtomicSwap {
         address _tokenAddress,
         address _sender,
         address _receiver,
-        uint256 _watcherReward,
-        bool _refundOnlyReward
+        RewardTargetOnSpend _rewardTarget,
+        bool _sendsReward,
+        uint256 _rewardAmount
     ) external {
         require(payments[_id].state == PaymentState.PaymentSent);
 
@@ -263,8 +282,9 @@ contract EtomicSwap {
                 _paymentHash,
                 _tokenAddress,
                 _amount,
-                _watcherReward,
-                _refundOnlyReward
+                _rewardTarget,
+                _sendsReward,
+                _rewardAmount
             ));
 
         require(paymentHash == payments[_id].paymentHash && block.timestamp >= payments[_id].lockTime);
@@ -272,12 +292,18 @@ contract EtomicSwap {
         payments[_id].state = PaymentState.SenderRefunded;
 
         if (_tokenAddress == address(0)) {
-            payable(_sender).transfer(_amount - _watcherReward);
-            payable(msg.sender).transfer(_watcherReward);
+            if (_rewardTarget == RewardTargetOnSpend.None){
+                payable(_sender).transfer(_amount);
+            } else {
+                payable(_sender).transfer(_amount - _rewardAmount);
+            }
         } else {
             IERC20 token = IERC20(_tokenAddress);
-            require(token.transfer(_sender, _amount - _watcherReward));
-            require(token.transfer(msg.sender, _watcherReward));
+            require(token.transfer(_sender, _amount));
+        }
+
+        if (_rewardTarget != RewardTargetOnSpend.None) {
+            payable(msg.sender).transfer(_rewardAmount);
         }
 
         emit SenderRefunded(_id);
