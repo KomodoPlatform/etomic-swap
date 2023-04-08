@@ -12,7 +12,7 @@ contract EtomicSwap {
     enum RewardTargetOnSpend {
         None,
         Contract,
-        RewardSender,
+        PaymentSender,
         PaymentSpender
     }
 
@@ -61,7 +61,7 @@ contract EtomicSwap {
         bytes20 _secretHash,
         uint64 _lockTime,
         RewardTargetOnSpend _rewardTarget,
-        bool _sendsReward,
+        bool _sendsContractRewardOnSpend,
         uint256 _rewardAmount
     ) external payable {
         require(_receiver != address(0) && msg.value > 0 && payments[_id].state == PaymentState.Uninitialized);
@@ -73,7 +73,7 @@ contract EtomicSwap {
                 address(0),
                 msg.value,
                 _rewardTarget,
-                _sendsReward,
+                _sendsContractRewardOnSpend,
                 _rewardAmount
             ));
 
@@ -123,12 +123,12 @@ contract EtomicSwap {
         bytes20 _secretHash,
         uint64 _lockTime,
         RewardTargetOnSpend _rewardTarget,
-        bool _sendsReward,
+        bool _sendsContractRewardOnSpend,
         uint256 _rewardAmount
     ) external payable {
         require(_receiver != address(0) && _amount > 0 && payments[_id].state == PaymentState.Uninitialized);
 
-        if (_rewardTarget != RewardTargetOnSpend.None) {
+        if (_rewardTarget != RewardTargetOnSpend.None && _rewardTarget != RewardTargetOnSpend.PaymentSpender) {
             require(msg.value == _rewardAmount);
         }
 
@@ -139,7 +139,7 @@ contract EtomicSwap {
                 _tokenAddress,
                 _amount,
                 _rewardTarget,
-                _sendsReward,
+                _sendsContractRewardOnSpend,
                 _rewardAmount
             ));
 
@@ -151,7 +151,6 @@ contract EtomicSwap {
 
         IERC20 token = IERC20(_tokenAddress);
         require(token.transferFrom(msg.sender, address(this), _amount));
-
         emit PaymentSent(_id);
     }
 
@@ -192,7 +191,7 @@ contract EtomicSwap {
         address _sender,
         address _receiver,
         RewardTargetOnSpend _rewardTarget,
-        bool _sendsReward,
+        bool _sendsContractRewardOnSpend,
         uint256 _rewardAmount
     ) external {
         require(payments[_id].state == PaymentState.PaymentSent, "Payment was not sent");
@@ -204,7 +203,7 @@ contract EtomicSwap {
                 _tokenAddress,
                 _amount,
                 _rewardTarget,
-                _sendsReward,
+                _sendsContractRewardOnSpend,
                 _rewardAmount
             ));
 
@@ -214,18 +213,25 @@ contract EtomicSwap {
         if (_tokenAddress == address(0)) {
             uint256 transferAmount = _rewardTarget == RewardTargetOnSpend.None ? _amount : _amount - _rewardAmount;
             payable(_receiver).transfer(transferAmount);
+
+            if (_rewardTarget == RewardTargetOnSpend.PaymentSpender) {
+                 payable(msg.sender).transfer(_rewardAmount);
+            }
         } else {
+            uint256 transferAmount = _rewardTarget == RewardTargetOnSpend.PaymentSpender ? _amount - _rewardAmount : _amount;
             IERC20 token = IERC20(_tokenAddress);
-            require(token.transfer(_receiver, _amount), "Token transfer failed");
+            require(token.transfer(_receiver, transferAmount), "Token transfer failed");
+
+            if (_rewardTarget == RewardTargetOnSpend.PaymentSpender) {
+                 require(token.transfer(msg.sender, _rewardAmount), "Token transfer failed");
+            }
         }
 
-        if (_rewardTarget == RewardTargetOnSpend.RewardSender) {
+        if (_rewardTarget == RewardTargetOnSpend.PaymentSender) {
             payable(_sender).transfer(_rewardAmount);
-        } else  if (_rewardTarget == RewardTargetOnSpend.PaymentSpender) {
-            payable(msg.sender).transfer(_rewardAmount);
-        } 
+        }
 
-        if (_sendsReward) {
+        if (_sendsContractRewardOnSpend) {
             payable(msg.sender).transfer(_rewardAmount);
         }
         
@@ -292,18 +298,22 @@ contract EtomicSwap {
         payments[_id].state = PaymentState.SenderRefunded;
 
         if (_tokenAddress == address(0)) {
-            if (_rewardTarget == RewardTargetOnSpend.None){
-                payable(_sender).transfer(_amount);
-            } else {
-                payable(_sender).transfer(_amount - _rewardAmount);
+            uint256 transferAmount = _rewardTarget == RewardTargetOnSpend.None ? _amount : _amount - _rewardAmount;
+            payable(_sender).transfer(transferAmount);
+
+            if (_rewardTarget != RewardTargetOnSpend.None) {
+                payable(msg.sender).transfer(_rewardAmount);
             }
         } else {
+            uint256 transferAmount = _rewardTarget == RewardTargetOnSpend.PaymentSpender ? _amount - _rewardAmount : _amount;
             IERC20 token = IERC20(_tokenAddress);
-            require(token.transfer(_sender, _amount));
-        }
+            require(token.transfer(_sender, transferAmount));
 
-        if (_rewardTarget != RewardTargetOnSpend.None) {
-            payable(msg.sender).transfer(_rewardAmount);
+            if (_rewardTarget == RewardTargetOnSpend.PaymentSender) {
+                payable(msg.sender).transfer(_rewardAmount);
+            } else if (_rewardTarget == RewardTargetOnSpend.PaymentSpender) {
+                require(token.transfer(msg.sender, _rewardAmount));
+            }
         }
 
         emit SenderRefunded(_id);
