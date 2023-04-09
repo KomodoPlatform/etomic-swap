@@ -309,10 +309,10 @@ contract EtomicSwap {
             IERC20 token = IERC20(_tokenAddress);
             require(token.transfer(_sender, transferAmount));
 
-            if (_rewardTarget == RewardTargetOnSpend.PaymentSender) {
-                payable(msg.sender).transfer(_rewardAmount);
-            } else if (_rewardTarget == RewardTargetOnSpend.PaymentSpender) {
+            if (_rewardTarget == RewardTargetOnSpend.PaymentSpender) {
                 require(token.transfer(msg.sender, _rewardAmount));
+            } else if (_rewardTarget != RewardTargetOnSpend.None) {
+                payable(msg.sender).transfer(_rewardAmount);
             }
         }
 
