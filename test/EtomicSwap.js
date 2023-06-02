@@ -27,7 +27,6 @@ async function currentEvmTime() {
     return block.timestamp;
 }
 
-const id = '0x' + crypto.randomBytes(32).toString('hex');
 const id_2 = '0x' + crypto.randomBytes(32).toString('hex');
 
 const [PAYMENT_UNINITIALIZED, PAYMENT_SENT, RECEIVER_SPENT, SENDER_REFUNDED] = [0, 1, 2, 3];
@@ -50,12 +49,20 @@ contract('EtomicSwap', function(accounts) {
     });
 
     it('should create contract with uninitialized payments', async function () {
+        const id = '0x' + crypto.randomBytes(32).toString('hex');
         const payment = await this.swap.payments(id);
         assert.equal(payment[2].valueOf(), PAYMENT_UNINITIALIZED);
     });
 
     it('should allow to send ETH payment', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime },
+            { type: 'bytes20', value: secretHash } ,
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             accounts[1],
@@ -63,7 +70,6 @@ contract('EtomicSwap', function(accounts) {
             lockTime
         ];
         await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.fulfilled;
-
 
         const payment = await this.swap.payments(id);
 
@@ -78,6 +84,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow to send ERC20 payment', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime },
+            { type: 'bytes20', value: secretHash },  
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             web3.utils.toWei('1'),
@@ -110,6 +123,13 @@ contract('EtomicSwap', function(accounts) {
     //********************************* */
     it('should allow receiver without watcher support to spend ETH payment by revealing a secret', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+        
         const params = [
             id,
             accounts[1],
@@ -153,6 +173,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow receiver without watcher support to spend ERC20 payment by revealing a secret', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime },
+            { type: 'bytes20', value: secretHash },  
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             web3.utils.toWei('1'),
@@ -197,6 +224,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow sender without watcher support to refund ETH payment after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime },
+            { type: 'bytes20', value: secretHash },  
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             accounts[1],
@@ -240,6 +274,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow sender without watcher support to refund ERC20 payment after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             web3.utils.toWei('1'),
@@ -285,6 +326,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow receiver to spend ETH payment by revealing a secret even after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             accounts[1],
@@ -319,6 +367,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow receiver to spend ERC20 payment by revealing a secret even after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             web3.utils.toWei('1'),
@@ -357,6 +412,13 @@ contract('EtomicSwap', function(accounts) {
     //*********************************************** */
     it('should allow receiver to spend ETH payment, rewardTarget = PaymentSpender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             accounts[1],
@@ -406,6 +468,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow receiver to spend ETH payment, rewardTarget = RewardSender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             accounts[1],
@@ -457,6 +526,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow receiver to spend ETH payment, rewardTarget = Contract', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             accounts[1],
@@ -511,6 +587,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow receiver to spend ERC20 payment, rewardTarget = PaymentSpender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         let amount = web3.utils.toWei(web3.utils.toBN(1)).add(watcherReward);
         const params = [
             id,
@@ -569,6 +652,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow receiver to spend ERC20 payment, rewardTarget = RewardSender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         let amount = web3.utils.toWei(web3.utils.toBN(1));
         const params = [
             id,
@@ -626,6 +716,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow receiver to spend ERC20 payment, rewardTarget = Contract', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime },
+            { type: 'bytes20', value: secretHash },  
+            { type: 'address', value: accounts[0] }
+        );
+
         let amount = web3.utils.toWei(web3.utils.toBN(1));
         const params = [
             id,
@@ -691,6 +788,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow sender to refund ETH payment, rewardTarget = PaymentSpender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             accounts[1],
@@ -739,6 +843,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow sender to refund ETH payment, rewardTarget = RewardSender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             accounts[1],
@@ -789,6 +900,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow sender to refund ERC20 payment, rewardTarget = PaymentSpender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         let amount = web3.utils.toWei(web3.utils.toBN(1)).add(watcherReward);
         const params = [
             id,
@@ -845,6 +963,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow sender to refund ERC20 payment, rewardTarget = RewardSender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime },
+            { type: 'bytes20', value: secretHash },  
+            { type: 'address', value: accounts[0] }
+        );
+
         let amount = web3.utils.toWei(web3.utils.toBN(1));
         const params = [
             id,
@@ -907,6 +1032,13 @@ contract('EtomicSwap', function(accounts) {
 
    it('should allow a watcher to spend ETH payment, rewardTarget = PaymentSpender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             accounts[1],
@@ -964,6 +1096,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow a watcher to spend ETH payment, rewardTarget = RewardSender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             accounts[1],
@@ -1021,6 +1160,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow a watcher to spend ERC20 payment, rewardTarget = PaymentSpender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         let amount = web3.utils.toWei(web3.utils.toBN(1)).add(watcherReward);
         const params = [
             id,
@@ -1078,6 +1224,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow a watcher to spend ERC20 payment, rewardTarget = RewardSender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         let amount = web3.utils.toWei(web3.utils.toBN(1));
         const params = [
             id,
@@ -1137,6 +1290,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow a watcher to refund ETH payment, rewardTarget = PaymentSpender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime },
+            { type: 'bytes20', value: secretHash },  
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             accounts[1],
@@ -1194,6 +1354,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow a watcher to refund ETH payment, rewardTarget = RewardSender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         const params = [
             id,
             accounts[1],
@@ -1254,6 +1421,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow a watcher to refund ERC20 payment, rewardTarget = PaymentSpender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         let amount = web3.utils.toWei(web3.utils.toBN(1)).add(watcherReward);
         const params = [
             id,
@@ -1311,6 +1485,13 @@ contract('EtomicSwap', function(accounts) {
 
     it('should allow a watcher to refund ERC20 payment, rewardTarget = RewardSender', async function () {
         const lockTime = await currentEvmTime() + 1000;
+
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: accounts[0] }
+        );
+
         let amount = web3.utils.toWei(web3.utils.toBN(1));
         const params = [
             id,
@@ -1379,6 +1560,12 @@ contract('EtomicSwap', function(accounts) {
         const takerAddress = accounts[0];
         const makerAddress = accounts[1];
 
+        const id = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: makerAddress }
+        );
+
         let makerAmount = web3.utils.toWei(web3.utils.toBN(1));
         const makerParams = [
             id,
@@ -1390,6 +1577,12 @@ contract('EtomicSwap', function(accounts) {
             watcherReward,
         ];
         await this.swap.ethPaymentReward(...makerParams, { from: makerAddress, value: makerAmount }).should.be.fulfilled;
+
+        const id_2 = web3.utils.soliditySha3(
+            { type: 'uint64', value: lockTime }, 
+            { type: 'bytes20', value: secretHash }, 
+            { type: 'address', value: takerAddress }
+        );
 
         let takerAmount = web3.utils.toWei(web3.utils.toBN(1));
         const takerParams = [

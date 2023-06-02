@@ -36,7 +36,15 @@ contract EtomicSwap {
         bytes20 _secretHash,
         uint64 _lockTime
     ) external payable {
-        require(_receiver != address(0) && msg.value > 0 && payments[_id].state == PaymentState.Uninitialized);
+        require(_receiver != address(0) && msg.value > 0);
+
+        bytes32 id = keccak256(abi.encodePacked(
+            _lockTime,
+            _secretHash,
+            msg.sender
+        ));
+
+        require(payments[id].state == PaymentState.Uninitialized);
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
                 _receiver,
@@ -46,13 +54,13 @@ contract EtomicSwap {
                 msg.value
             ));
 
-        payments[_id] = Payment(
+        payments[id] = Payment(
             paymentHash,
             _lockTime,
             PaymentState.PaymentSent
         );
 
-        emit PaymentSent(_id);
+        emit PaymentSent(id);
     }
 
     function ethPaymentReward(
@@ -64,7 +72,15 @@ contract EtomicSwap {
         bool _sendsContractRewardOnSpend,
         uint256 _rewardAmount
     ) external payable {
-        require(_receiver != address(0) && msg.value > 0 && payments[_id].state == PaymentState.Uninitialized);
+        require(_receiver != address(0) && msg.value > 0);
+
+        bytes32 id = keccak256(abi.encodePacked(
+            _lockTime,
+            _secretHash,
+            msg.sender
+        ));
+
+        require(payments[id].state == PaymentState.Uninitialized);
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
                 _receiver,
@@ -77,13 +93,13 @@ contract EtomicSwap {
                 _rewardAmount
             ));
 
-        payments[_id] = Payment(
+        payments[id] = Payment(
             paymentHash,
             _lockTime,
             PaymentState.PaymentSent
         );
 
-        emit PaymentSent(_id);
+        emit PaymentSent(id);
     }
 
     function erc20Payment(
@@ -94,7 +110,15 @@ contract EtomicSwap {
         bytes20 _secretHash,
         uint64 _lockTime
     ) external {
-        require(_receiver != address(0) && _amount > 0 && payments[_id].state == PaymentState.Uninitialized);
+        require(_receiver != address(0) && _amount > 0);
+
+        bytes32 id = keccak256(abi.encodePacked(
+            _lockTime,
+            _secretHash,
+            msg.sender
+        ));
+
+        require(payments[id].state == PaymentState.Uninitialized);
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
                 _receiver,
@@ -104,7 +128,7 @@ contract EtomicSwap {
                 _amount
             ));
 
-        payments[_id] = Payment(
+        payments[id] = Payment(
             paymentHash,
             _lockTime,
             PaymentState.PaymentSent
@@ -112,7 +136,7 @@ contract EtomicSwap {
 
         IERC20 token = IERC20(_tokenAddress);
         require(token.transferFrom(msg.sender, address(this), _amount));
-        emit PaymentSent(_id);
+        emit PaymentSent(id);
     }
 
     function erc20PaymentReward(
@@ -126,7 +150,15 @@ contract EtomicSwap {
         bool _sendsContractRewardOnSpend,
         uint256 _rewardAmount
     ) external payable {
-        require(_receiver != address(0) && _amount > 0 && payments[_id].state == PaymentState.Uninitialized);
+        require(_receiver != address(0) && _amount > 0);
+        
+        bytes32 id = keccak256(abi.encodePacked(
+            _lockTime,
+            _secretHash,
+            msg.sender
+        ));
+
+        require(payments[id].state == PaymentState.Uninitialized);
 
         if (_rewardTarget != RewardTargetOnSpend.None && _rewardTarget != RewardTargetOnSpend.PaymentSpender) {
             require(msg.value == _rewardAmount);
@@ -143,7 +175,7 @@ contract EtomicSwap {
                 _rewardAmount
             ));
 
-        payments[_id] = Payment(
+        payments[id] = Payment(
             paymentHash,
             _lockTime,
             PaymentState.PaymentSent
@@ -151,7 +183,7 @@ contract EtomicSwap {
 
         IERC20 token = IERC20(_tokenAddress);
         require(token.transferFrom(msg.sender, address(this), _amount));
-        emit PaymentSent(_id);
+        emit PaymentSent(id);
     }
 
     function receiverSpend(
