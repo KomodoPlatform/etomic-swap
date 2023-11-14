@@ -1,5 +1,5 @@
-pragma solidity ^0.5.0;
-import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
+pragma solidity ^0.8.23;
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract EtomicSwap {
     enum PaymentState {
@@ -21,7 +21,7 @@ contract EtomicSwap {
     event ReceiverSpent(bytes32 id, bytes32 secret);
     event SenderRefunded(bytes32 id);
 
-    constructor() public { }
+    constructor() { }
 
     function ethPayment(
         bytes32 _id,
@@ -32,12 +32,12 @@ contract EtomicSwap {
         require(_receiver != address(0) && msg.value > 0 && payments[_id].state == PaymentState.Uninitialized);
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
-                _receiver,
-                msg.sender,
-                _secretHash,
-                address(0),
-                msg.value
-            ));
+            _receiver,
+            msg.sender,
+            _secretHash,
+            address(0),
+            msg.value
+        ));
 
         payments[_id] = Payment(
             paymentHash,
@@ -59,12 +59,12 @@ contract EtomicSwap {
         require(_receiver != address(0) && _amount > 0 && payments[_id].state == PaymentState.Uninitialized);
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
-                _receiver,
-                msg.sender,
-                _secretHash,
-                _tokenAddress,
-                _amount
-            ));
+            _receiver,
+            msg.sender,
+            _secretHash,
+            _tokenAddress,
+            _amount
+        ));
 
         payments[_id] = Payment(
             paymentHash,
@@ -87,17 +87,17 @@ contract EtomicSwap {
         require(payments[_id].state == PaymentState.PaymentSent);
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
-                msg.sender,
-                _sender,
-                ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
-                _tokenAddress,
-                _amount
-            ));
+            msg.sender,
+            _sender,
+            ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
+            _tokenAddress,
+            _amount
+        ));
 
         require(paymentHash == payments[_id].paymentHash);
         payments[_id].state = PaymentState.ReceivedSpent;
         if (_tokenAddress == address(0)) {
-            msg.sender.transfer(_amount);
+            payable(msg.sender).transfer(_amount);
         } else {
             IERC20 token = IERC20(_tokenAddress);
             require(token.transfer(msg.sender, _amount));
@@ -116,19 +116,19 @@ contract EtomicSwap {
         require(payments[_id].state == PaymentState.PaymentSent);
 
         bytes20 paymentHash = ripemd160(abi.encodePacked(
-                _receiver,
-                msg.sender,
-                _paymentHash,
-                _tokenAddress,
-                _amount
-            ));
+            _receiver,
+            msg.sender,
+            _paymentHash,
+            _tokenAddress,
+            _amount
+        ));
 
-        require(paymentHash == payments[_id].paymentHash && now >= payments[_id].lockTime);
+        require(paymentHash == payments[_id].paymentHash && block.timestamp >= payments[_id].lockTime);
 
         payments[_id].state = PaymentState.SenderRefunded;
 
         if (_tokenAddress == address(0)) {
-            msg.sender.transfer(_amount);
+            payable(msg.sender).transfer(_amount);
         } else {
             IERC20 token = IERC20(_tokenAddress);
             require(token.transfer(msg.sender, _amount));
