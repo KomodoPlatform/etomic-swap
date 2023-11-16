@@ -117,6 +117,7 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[1]).should.be.rejectedWith(EVMThrow);
 
         await increaseTime(1000);
+        await web3.currentProvider.request({ method: 'evm_mine' });
 
         // not allow to call refund from non-sender address
         await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[1], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
@@ -163,6 +164,7 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, this.token.address, accounts[1]).should.be.rejectedWith(EVMThrow);
 
         await increaseTime(1000);
+        await web3.currentProvider.request({ method: 'evm_mine' });
 
         // not allow to call refund from non-sender address
         await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, this.token.address, accounts[1], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
@@ -286,6 +288,7 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.fulfilled;
 
         await increaseTime(1000);
+        await web3.currentProvider.request({ method: 'evm_mine' });
 
         // success spend
         const balanceBefore = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
@@ -308,7 +311,7 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
     });
 
-    it('should allow receiver to spend ERC20 payment by revealing a secret', async function () {
+    it('should allow receiver to spend ERC20 payment by revealing a secret even after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
             id,
@@ -323,6 +326,7 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.erc20Payment(...params).should.be.fulfilled;
 
         await increaseTime(1000);
+        await web3.currentProvider.request({ method: 'evm_mine' });
 
         // success spend
         const balanceBefore = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
