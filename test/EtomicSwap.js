@@ -9,17 +9,23 @@ require('chai')
     .use(require('chai-as-promised'))
     .should();
 
-function increaseTime (increaseAmount) {
-    return new Promise((resolve, reject) => {
-        web3.currentProvider.send({
-                jsonrpc: '2.0',
-                method: 'evm_increaseTime',
-                id: Date.now(),
-                params: [increaseAmount]
-        }, (err, res) => {
-            return err ? reject(err) : resolve(res);
-        });
+/**
+ * Advances the Ethereum Virtual Machine (EVM) time by a specified amount and then mines a new block.
+ *
+ * @param {number} increaseAmount The amount of time to advance in seconds.
+ *
+ * This function is used in Ethereum smart contract testing to simulate the passage of time. In the EVM,
+ * time is measured based on block timestamps. The 'evm_increaseTime' method increases the EVM's internal
+ * clock, but this change only affects the next mined block. Therefore, 'evm_mine' is called immediately
+ * afterwards to mine a new block, ensuring that the blockchain's timestamp is updated to reflect the time
+ * change. This approach is essential for testing time-dependent contract features like lock periods or deadlines.
+ */
+async function advanceTimeAndMine(increaseAmount) {
+    await web3.currentProvider.request({
+        method: 'evm_increaseTime',
+        params: [increaseAmount],
     });
+    await web3.currentProvider.request({ method: 'evm_mine' });
 }
 
 async function currentEvmTime() {
@@ -116,8 +122,7 @@ contract('EtomicSwap', function(accounts) {
         // not allow to refund before locktime
         await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[1]).should.be.rejectedWith(EVMThrow);
 
-        await increaseTime(1000);
-        await web3.currentProvider.request({ method: 'evm_mine' });
+        await advanceTimeAndMine(1000);
 
         // not allow to call refund from non-sender address
         await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, zeroAddr, accounts[1], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
@@ -163,8 +168,7 @@ contract('EtomicSwap', function(accounts) {
         // not allow to refund before locktime
         await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, this.token.address, accounts[1]).should.be.rejectedWith(EVMThrow);
 
-        await increaseTime(1000);
-        await web3.currentProvider.request({ method: 'evm_mine' });
+        await advanceTimeAndMine(1000);
 
         // not allow to call refund from non-sender address
         await this.swap.senderRefund(id, web3.utils.toWei('1'), secretHash, this.token.address, accounts[1], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
@@ -287,8 +291,7 @@ contract('EtomicSwap', function(accounts) {
 
         await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.fulfilled;
 
-        await increaseTime(1000);
-        await web3.currentProvider.request({ method: 'evm_mine' });
+        await advanceTimeAndMine(1000);
 
         // success spend
         const balanceBefore = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
@@ -325,8 +328,7 @@ contract('EtomicSwap', function(accounts) {
         await this.token.approve(this.swap.address, web3.utils.toWei('1'));
         await this.swap.erc20Payment(...params).should.be.fulfilled;
 
-        await increaseTime(1000);
-        await web3.currentProvider.request({ method: 'evm_mine' });
+        await advanceTimeAndMine(1000);
 
         // success spend
         const balanceBefore = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
