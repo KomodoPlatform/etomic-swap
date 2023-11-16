@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
 ADD . /usr/src/rpc
 
 WORKDIR /usr/src/rpc
-RUN yarn
+RUN git config --global url."https://".insteadOf git://
+RUN yarn install
 
 CMD yarn rpc

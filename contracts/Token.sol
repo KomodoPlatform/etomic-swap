@@ -1,7 +1,6 @@
 pragma solidity ^0.8.23;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /**
  * @title Standard ERC20 token
@@ -15,7 +14,6 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
  * compliant implementations may not do it.
  */
 contract Token is IERC20 {
-  using SafeMath for uint256;
 
   mapping (address => uint256) private _balances;
 
@@ -96,7 +94,7 @@ contract Token is IERC20 {
    * @param value uint256 the amount of tokens to be transferred
    */
   function transferFrom(address from, address to, uint256 value) public returns (bool) {
-    _allowed[from][msg.sender] = _allowed[from][msg.sender].sub(value);
+    _allowed[from][msg.sender] = _allowed[from][msg.sender] - value;
     _transfer(from, to, value);
     emit Approval(from, msg.sender, _allowed[from][msg.sender]);
     return true;
@@ -115,7 +113,7 @@ contract Token is IERC20 {
   function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
     require(spender != address(0));
 
-    _allowed[msg.sender][spender] = _allowed[msg.sender][spender].add(addedValue);
+    _allowed[msg.sender][spender] = _allowed[msg.sender][spender] + addedValue;
     emit Approval(msg.sender, spender, _allowed[msg.sender][spender]);
     return true;
   }
@@ -133,7 +131,7 @@ contract Token is IERC20 {
   function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
     require(spender != address(0));
 
-    _allowed[msg.sender][spender] = _allowed[msg.sender][spender].sub(subtractedValue);
+    _allowed[msg.sender][spender] = _allowed[msg.sender][spender] - subtractedValue;
     emit Approval(msg.sender, spender, _allowed[msg.sender][spender]);
     return true;
   }
@@ -147,8 +145,8 @@ contract Token is IERC20 {
   function _transfer(address from, address to, uint256 value) internal {
     require(to != address(0));
 
-    _balances[from] = _balances[from].sub(value);
-    _balances[to] = _balances[to].add(value);
+    _balances[from] = _balances[from] - value;
+    _balances[to] = _balances[to] + value;
     emit Transfer(from, to, value);
   }
 
@@ -162,8 +160,8 @@ contract Token is IERC20 {
   function _mint(address account, uint256 value) internal {
     require(account != address(0));
 
-    _totalSupply = _totalSupply.add(value);
-    _balances[account] = _balances[account].add(value);
+    _totalSupply = _totalSupply + value;
+    _balances[account] = _balances[account] + value;
     emit Transfer(address(0), account, value);
   }
 
@@ -176,8 +174,8 @@ contract Token is IERC20 {
   function _burn(address account, uint256 value) internal {
     require(account != address(0));
 
-    _totalSupply = _totalSupply.sub(value);
-    _balances[account] = _balances[account].sub(value);
+    _totalSupply = _totalSupply + value;
+    _balances[account] = _balances[account] - value;
     emit Transfer(account, address(0), value);
   }
 
@@ -190,7 +188,7 @@ contract Token is IERC20 {
    * @param value The amount that will be burnt.
    */
   function _burnFrom(address account, uint256 value) internal {
-    _allowed[account][msg.sender] = _allowed[account][msg.sender].sub(value);
+    _allowed[account][msg.sender] = _allowed[account][msg.sender] - value;
     _burn(account, value);
     emit Approval(account, msg.sender, _allowed[account][msg.sender]);
   }

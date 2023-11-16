@@ -4,6 +4,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Migrations is Ownable {
   uint public last_completed_migration;
 
+  // constructor() Ownable(msg.sender) { }
   constructor(address initialOwner) Ownable(initialOwner) { }
 
   function setCompleted(uint completed) public onlyOwner {

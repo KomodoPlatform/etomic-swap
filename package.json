@@ -20,6 +20,6 @@
     "request-promise-native": "^1.0.5",
     "ripemd160": "^2.0.1",
     "sol-merger": "^0.1.0",
-    "web3": "^1.0.0-beta.27"
+    "web3": "^4.2.2"
   }
 }

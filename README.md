@@ -22,8 +22,8 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 ## How to setup dev environment?
 
 1. Install docker.
-1. Run `docker-compose build`.
 1. `cp .env.empty .env`.
+1. Run `docker-compose build`.
 1. Start containers `docker-compose up -d`.
 1. Install project dependencies: `docker-compose exec workspace yarn`.
 1. To run tests: `docker-compose exec workspace truffle test`.
