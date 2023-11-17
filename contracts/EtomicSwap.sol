@@ -15,13 +15,13 @@ contract EtomicSwap {
         PaymentState state;
     }
 
-    mapping (bytes32 => Payment) public payments;
+    mapping(bytes32 => Payment) public payments;
 
     event PaymentSent(bytes32 id);
     event ReceiverSpent(bytes32 id, bytes32 secret);
     event SenderRefunded(bytes32 id);
 
-    constructor() { }
+    constructor() {}
 
     function ethPayment(
         bytes32 _id,
@@ -29,15 +29,21 @@ contract EtomicSwap {
         bytes20 _secretHash,
         uint64 _lockTime
     ) external payable {
-        require(_receiver != address(0) && msg.value > 0 && payments[_id].state == PaymentState.Uninitialized);
+        require(
+            _receiver != address(0) &&
+            msg.value > 0 &&
+            payments[_id].state == PaymentState.Uninitialized
+        );
 
-        bytes20 paymentHash = ripemd160(abi.encodePacked(
-            _receiver,
-            msg.sender,
-            _secretHash,
-            address(0),
-            msg.value
-        ));
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                _receiver,
+                msg.sender,
+                _secretHash,
+                address(0),
+                msg.value
+            )
+        );
 
         payments[_id] = Payment(
             paymentHash,
@@ -56,15 +62,21 @@ contract EtomicSwap {
         bytes20 _secretHash,
         uint64 _lockTime
     ) external payable {
-        require(_receiver != address(0) && _amount > 0 && payments[_id].state == PaymentState.Uninitialized);
+        require(
+            _receiver != address(0) &&
+            _amount > 0 &&
+            payments[_id].state == PaymentState.Uninitialized
+        );
 
-        bytes20 paymentHash = ripemd160(abi.encodePacked(
-            _receiver,
-            msg.sender,
-            _secretHash,
-            _tokenAddress,
-            _amount
-        ));
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                _receiver,
+                msg.sender,
+                _secretHash,
+                _tokenAddress,
+                _amount
+            )
+        );
 
         payments[_id] = Payment(
             paymentHash,
@@ -86,13 +98,15 @@ contract EtomicSwap {
     ) external {
         require(payments[_id].state == PaymentState.PaymentSent);
 
-        bytes20 paymentHash = ripemd160(abi.encodePacked(
-            msg.sender,
-            _sender,
-            ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
-            _tokenAddress,
-            _amount
-        ));
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                msg.sender,
+                _sender,
+                ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
+                _tokenAddress,
+                _amount
+            )
+        );
 
         require(paymentHash == payments[_id].paymentHash);
         payments[_id].state = PaymentState.ReceivedSpent;
@@ -115,15 +129,20 @@ contract EtomicSwap {
     ) external {
         require(payments[_id].state == PaymentState.PaymentSent);
 
-        bytes20 paymentHash = ripemd160(abi.encodePacked(
-            _receiver,
-            msg.sender,
-            _paymentHash,
-            _tokenAddress,
-            _amount
-        ));
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                _receiver,
+                msg.sender,
+                _paymentHash,
+                _tokenAddress,
+                _amount
+            )
+        );
 
-        require(paymentHash == payments[_id].paymentHash && block.timestamp >= payments[_id].lockTime);
+        require(
+            paymentHash == payments[_id].paymentHash &&
+            block.timestamp >= payments[_id].lockTime
+        );
 
         payments[_id].state = PaymentState.SenderRefunded;
 
