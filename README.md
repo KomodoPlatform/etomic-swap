@@ -17,6 +17,7 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 ## Project structure
 
 1. `contracts` - Smart Contracts source code.
+1. `migrations` - Deployment scripts.
 1. `test` - Smart contracts unit tests.
 
 ## How to setup dev environment?
@@ -36,4 +37,4 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 
 1. Truffle suite - https://github.com/trufflesuite/truffle
 1. Ganache (EthereumJS Testrpc) - https://github.com/trufflesuite/ganache
-1. Zeppelin Solidity - https://github.com/OpenZeppelin/openzeppelin-contracts
+1. OpenZeppelin Contracts - https://github.com/OpenZeppelin/openzeppelin-contracts
