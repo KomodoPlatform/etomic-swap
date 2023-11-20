@@ -1,6 +1,6 @@
-# Etomic Swap Smart Contracts for BarterDex platform.
+# Etomic Swap Smart Contracts for Komodo SDK.
 [![Build Status](https://travis-ci.org/artemii235/etomic-swap.svg?branch=master)](https://travis-ci.org/artemii235/etomic-swap)  
-Etomic swap Smart Contract is implemented to support ETH and ERC20 atomic swaps on BarterDex platform.
+Etomic swap Smart Contract is implemented to support ETH and ERC20 atomic swaps on Komodo SDK.
 Please note that this project is not production ready yet!
 
 ## Swap workflow
@@ -35,5 +35,5 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 ## Useful links for smart contracts development
 
 1. Truffle suite - https://github.com/trufflesuite/truffle
-1. Ganache-cli (EthereumJS Testrpc) - https://github.com/trufflesuite/ganache-cli
-1. Zeppelin Solidity - https://github.com/OpenZeppelin/zeppelin-solidity
+1. Ganache (EthereumJS Testrpc) - https://github.com/trufflesuite/ganache
+1. Zeppelin Solidity - https://github.com/OpenZeppelin/openzeppelin-contracts

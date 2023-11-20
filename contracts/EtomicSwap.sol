@@ -5,7 +5,7 @@ contract EtomicSwap {
     enum PaymentState {
         Uninitialized,
         PaymentSent,
-        ReceivedSpent,
+        ReceiverSpent,
         SenderRefunded
     }
 
@@ -109,7 +109,7 @@ contract EtomicSwap {
         );
 
         require(paymentHash == payments[_id].paymentHash);
-        payments[_id].state = PaymentState.ReceivedSpent;
+        payments[_id].state = PaymentState.ReceiverSpent;
         if (_tokenAddress == address(0)) {
             payable(msg.sender).transfer(_amount);
         } else {
