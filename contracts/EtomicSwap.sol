@@ -1,5 +1,7 @@
 pragma solidity ^0.8.23;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
 contract EtomicSwap {
     enum PaymentState {
@@ -89,6 +91,41 @@ contract EtomicSwap {
         emit PaymentSent(_id);
     }
 
+    function erc721Payment(
+        bytes32 _id,
+        address _receiver,
+        address _tokenAddress,
+        uint256 _tokenId,
+        bytes20 _secretHash,
+        uint64 _lockTime
+    ) external payable {
+        require(
+            _receiver != address(0) &&
+            _tokenAddress != address(0) &&
+            payments[_id].state == PaymentState.Uninitialized
+        );
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                _receiver,
+                msg.sender,
+                _secretHash,
+                _tokenAddress,
+                _tokenId
+            )
+        );
+
+        payments[_id] = Payment(
+            paymentHash,
+            _lockTime,
+            PaymentState.PaymentSent
+        );
+
+        IERC721 token = IERC721(_tokenAddress);
+        token.transferFrom(msg.sender, address(this), _tokenId);
+        emit PaymentSent(_id);
+    }
+
     function receiverSpend(
         bytes32 _id,
         uint256 _amount,
@@ -116,6 +153,33 @@ contract EtomicSwap {
             IERC20 token = IERC20(_tokenAddress);
             require(token.transfer(msg.sender, _amount));
         }
+
+        emit ReceiverSpent(_id, _secret);
+    }
+
+    function receiverSpendErc721(
+        bytes32 _id,
+        bytes32 _secret,
+        address _tokenAddress,
+        uint256 _tokenId,
+        address _sender
+    ) external {
+        require(payments[_id].state == PaymentState.PaymentSent);
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                msg.sender,
+                _sender,
+                ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
+                _tokenAddress,
+                _tokenId
+            )
+        );
+
+        require(paymentHash == payments[_id].paymentHash);
+        payments[_id].state = PaymentState.ReceiverSpent;
+        IERC721 token = IERC721(_tokenAddress);
+        token.transferFrom(address(this), msg.sender, _tokenId);
 
         emit ReceiverSpent(_id, _secret);
     }

@@ -38,3 +38,19 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 1. Truffle suite - https://github.com/trufflesuite/truffle
 1. Ganache (EthereumJS Testrpc) - https://github.com/trufflesuite/ganache
 1. OpenZeppelin Contracts - https://github.com/OpenZeppelin/openzeppelin-contracts
+
+## Contribution Guide
+
+- Run Docker tests to ensure that the project is set up successfully.
+- Write tests for new contracts and functionalities.
+- Run tests to confirm that new implementations work correctly.
+- Format Solidity code before opening a pull request (PR). For formatting, you can use Remix Online IDE - https://remix.ethereum.org/
+
+## Where Can I Write Solidity Code?
+
+### Notes for Those Without an IDE:
+Using Remix Online IDE is sufficient. There's no need to install anything locally.
+
+### Notes for JetBrains or Visual Studio Code (VSCode) Users:
+- These IDEs offer Solidity plugins, which can simplify your workflow. However, Remix Online IDE is also a viable option.
+- To index JavaScript code, execute the Docker commands as mentioned. Necessary dependencies will be downloaded, enabling the IDE to index the rest of the code.
