@@ -1,9 +1,13 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.23;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract EtomicSwap {
+contract EtomicSwap is ERC165, IERC1155Receiver {
     enum PaymentState {
         Uninitialized,
         PaymentSent,
@@ -250,5 +254,46 @@ contract EtomicSwap {
         token.transferFrom(address(this), msg.sender, _tokenId);
 
         emit SenderRefunded(_id);
+    }
+
+    function onERC1155Received(
+        address, /* operator */
+        address, /* from */
+        uint256, /* id */
+        uint256, /* value */
+        bytes calldata /* data */
+    ) external pure override returns (bytes4) {
+        return
+            bytes4(
+            keccak256(
+                "onERC1155Received(address,address,uint256,uint256,bytes)"
+            )
+        );
+    }
+
+    function onERC1155BatchReceived(
+        address, /* operator */
+        address, /* from */
+        uint256[] calldata, /* ids */
+        uint256[] calldata, /* values */
+        bytes calldata /* data */
+    ) external pure override returns (bytes4) {
+        return
+            bytes4(
+            keccak256(
+                "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"
+            )
+        );
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+    public
+    view
+    override(ERC165, IERC165)
+    returns (bool)
+    {
+        return
+            interfaceId == type(IERC1155Receiver).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }
