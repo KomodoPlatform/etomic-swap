@@ -1,6 +1,7 @@
 const Swap = artifacts.require('EtomicSwap');
 const Token = artifacts.require('Token');
 const Erc721Token = artifacts.require('Erc721Token');
+const Erc1155Token = artifacts.require('Erc1155Token');
 const crypto = require('crypto');
 const RIPEMD160 = require('ripemd160');
 
@@ -49,12 +50,20 @@ contract('EtomicSwap', function(accounts) {
         this.swap = await Swap.new();
         this.token = await Token.new();
         this.erc721token = await Erc721Token.new("MyNFT", "MNFT");
+        this.erc1155token = await Erc1155Token.new("uri");
         await this.token.transfer(accounts[1], web3.utils.toWei('100'));
     });
 
     it('should create contract with uninitialized payments', async function () {
         const payment = await this.swap.payments(id);
         assert.equal(payment[2].valueOf(), PAYMENT_UNINITIALIZED);
+    });
+
+    it('should have correct ERC1155 token balance', async function() {
+        const amount = 3;
+        const tokenId = 1;
+        const balance = await this.erc1155token.balanceOf(accounts[0], tokenId);
+        assert.equal(balance.toNumber(), amount, "Balance of ERC1155 tokens in EtomicSwap contract is incorrect");
     });
 
     it('should allow to send ETH payment', async function () {
