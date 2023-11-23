@@ -178,6 +178,7 @@ contract EtomicSwap {
 
         require(paymentHash == payments[_id].paymentHash);
         payments[_id].state = PaymentState.ReceiverSpent;
+
         IERC721 token = IERC721(_tokenAddress);
         token.transferFrom(address(this), msg.sender, _tokenId);
 
@@ -216,6 +217,37 @@ contract EtomicSwap {
             IERC20 token = IERC20(_tokenAddress);
             require(token.transfer(msg.sender, _amount));
         }
+
+        emit SenderRefunded(_id);
+    }
+
+    function senderRefundErc721(
+        bytes32 _id,
+        bytes20 _paymentHash,
+        address _tokenAddress,
+        uint256 _tokenId,
+        address _receiver
+    ) external {
+        require(payments[_id].state == PaymentState.PaymentSent);
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                _receiver,
+                msg.sender,
+                _paymentHash,
+                _tokenAddress,
+                _tokenId
+            )
+        );
+
+        require(
+            paymentHash == payments[_id].paymentHash &&
+            block.timestamp >= payments[_id].lockTime
+        );
+        payments[_id].state = PaymentState.SenderRefunded;
+
+        IERC721 token = IERC721(_tokenAddress);
+        token.transferFrom(address(this), msg.sender, _tokenId);
 
         emit SenderRefunded(_id);
     }
