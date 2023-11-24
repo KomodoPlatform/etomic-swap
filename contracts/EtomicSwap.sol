@@ -102,7 +102,7 @@ contract EtomicSwap is ERC165, IERC1155Receiver {
         uint256 _tokenId,
         bytes20 _secretHash,
         uint64 _lockTime
-    ) external payable {
+    ) external {
         require(
             _receiver != address(0) &&
             _tokenAddress != address(0) &&
@@ -127,6 +127,50 @@ contract EtomicSwap is ERC165, IERC1155Receiver {
 
         IERC721 token = IERC721(_tokenAddress);
         token.transferFrom(msg.sender, address(this), _tokenId);
+        emit PaymentSent(_id);
+    }
+
+    function erc1155Payment(
+        bytes32 _id,
+        uint256 _amount,
+        address _receiver,
+        address _tokenAddress,
+        uint256 _tokenId,
+        bytes20 _secretHash,
+        uint64 _lockTime
+    ) external {
+        require(
+            _receiver != address(0) &&
+            _tokenAddress != address(0) &&
+            _amount > 0 &&
+            payments[_id].state == PaymentState.Uninitialized
+        );
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                _receiver,
+                msg.sender,
+                _secretHash,
+                _tokenAddress,
+                _tokenId,
+                _amount
+            )
+        );
+
+        payments[_id] = Payment(
+            paymentHash,
+            _lockTime,
+            PaymentState.PaymentSent
+        );
+
+        IERC1155 token = IERC1155(_tokenAddress);
+        token.safeTransferFrom(
+            msg.sender,
+            address(this),
+            _tokenId,
+            _amount,
+            ""
+        );
         emit PaymentSent(_id);
     }
 
@@ -185,6 +229,42 @@ contract EtomicSwap is ERC165, IERC1155Receiver {
 
         IERC721 token = IERC721(_tokenAddress);
         token.transferFrom(address(this), msg.sender, _tokenId);
+
+        emit ReceiverSpent(_id, _secret);
+    }
+
+    function receiverSpendErc1155(
+        bytes32 _id,
+        uint256 _amount,
+        bytes32 _secret,
+        address _tokenAddress,
+        uint256 _tokenId,
+        address _sender
+    ) external {
+        require(payments[_id].state == PaymentState.PaymentSent);
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                msg.sender,
+                _sender,
+                ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
+                _tokenAddress,
+                _tokenId,
+                _amount
+            )
+        );
+
+        require(paymentHash == payments[_id].paymentHash);
+        payments[_id].state = PaymentState.ReceiverSpent;
+
+        IERC1155 token = IERC1155(_tokenAddress);
+        token.safeTransferFrom(
+            address(this),
+            msg.sender,
+            _tokenId,
+            _amount,
+            ""
+        );
 
         emit ReceiverSpent(_id, _secret);
     }
@@ -252,6 +332,45 @@ contract EtomicSwap is ERC165, IERC1155Receiver {
 
         IERC721 token = IERC721(_tokenAddress);
         token.transferFrom(address(this), msg.sender, _tokenId);
+
+        emit SenderRefunded(_id);
+    }
+
+    function senderRefundErc1155(
+        bytes32 _id,
+        uint256 _amount,
+        bytes20 _paymentHash,
+        address _tokenAddress,
+        uint256 _tokenId,
+        address _receiver
+    ) external {
+        require(payments[_id].state == PaymentState.PaymentSent);
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                _receiver,
+                msg.sender,
+                _paymentHash,
+                _tokenAddress,
+                _tokenId,
+                _amount
+            )
+        );
+
+        require(
+            paymentHash == payments[_id].paymentHash &&
+            block.timestamp >= payments[_id].lockTime
+        );
+        payments[_id].state = PaymentState.SenderRefunded;
+
+        IERC1155 token = IERC1155(_tokenAddress);
+        token.safeTransferFrom(
+            address(this),
+            msg.sender,
+            _tokenId,
+            _amount,
+            ""
+        );
 
         emit SenderRefunded(_id);
     }

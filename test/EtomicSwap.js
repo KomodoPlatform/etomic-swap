@@ -146,6 +146,65 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.erc721Payment(...params, { from: accounts[0] }).should.rejectedWith(EVMThrow);
     });
 
+    it('should allow to send ERC1155 payment', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const tokenId = 1; // Token ID used in Erc1155Token contract
+        const amountToSend = 2; // Amount of tokens to send
+        const params = [
+            id,
+            amountToSend,
+            accounts[1], // Receiver address
+            this.erc1155token.address, // ERC1155 token contract address
+            tokenId,
+            secretHash,
+            lockTime
+        ];
+
+        // Approve the swap contract to manage all accounts[0]'s tokens
+        await this.erc1155token.setApprovalForAll(this.swap.address, true, { from: accounts[0] });
+
+        // Call the erc1155Payment function to send the tokens to the swap contract
+        await this.swap.erc1155Payment(...params, { from: accounts[0] }).should.be.fulfilled;
+
+        // Check the payment lockTime and state
+        const payment = await this.swap.payments(id);
+        assert.equal(payment[1].valueOf(), lockTime);
+        assert.equal(payment[2].valueOf(), PAYMENT_SENT);
+
+        // Check the balance of the token in the swap contract
+        const tokenBalance = await this.erc1155token.balanceOf(this.swap.address, tokenId);
+        assert.equal(tokenBalance.toNumber(), amountToSend);
+
+        // should not allow to send same params again
+        await this.swap.erc1155Payment(...params, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+
+        // sender should be capable to send more tokens, if they have it
+        const id1 = '0x' + crypto.randomBytes(32).toString('hex');
+        const params1 = [
+            id1,
+            1,
+            accounts[1],
+            this.erc1155token.address,
+            tokenId,
+            secretHash,
+            lockTime
+        ];
+        await this.swap.erc1155Payment(...params1, { from: accounts[0] }).should.be.fulfilled;
+
+        // Check sending more tokens than the sender owns - should fail
+        const id2 = '0x' + crypto.randomBytes(32).toString('hex');
+        const params2 = [
+            id2,
+            1,
+            accounts[1],
+            this.erc1155token.address,
+            tokenId,
+            secretHash,
+            lockTime
+        ];
+        await this.swap.erc1155Payment(...params2, { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    });
+
     it('should allow sender to refund ETH payment after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
@@ -240,7 +299,7 @@ contract('EtomicSwap', function(accounts) {
         const params = [
             id,
             accounts[1], // Receiver address
-            this.erc721token.address,
+            this.erc721token.address, // ERC721 token contract address
             tokenId,
             secretHash,
             lockTime
@@ -272,6 +331,48 @@ contract('EtomicSwap', function(accounts) {
 
         // Attempting refund again - should fail
         await this.swap.senderRefundErc721(id, secretHash, this.erc721token.address, tokenId, accounts[1], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+    });
+
+    it('should allow sender to refund ERC1155 payment after locktime', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const tokenId = 1; // Token ID used in Erc1155Token contract
+        const amountToSend = 3; // Amount of tokens to send
+        const params = [
+            id,
+            amountToSend,
+            accounts[1], // Receiver address
+            this.erc1155token.address, // ERC1155 token contract address
+            tokenId,
+            secretHash,
+            lockTime
+        ];
+
+        // Approve and send ERC1155 payment
+        await this.erc1155token.setApprovalForAll(this.swap.address, true, { from: accounts[0] });
+        await this.swap.erc1155Payment(...params, { from: accounts[0] }).should.be.fulfilled;
+
+        // Attempt refund before locktime - should fail
+        await this.swap.senderRefundErc1155(id, amountToSend, secretHash, this.erc1155token.address, tokenId, accounts[1], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+
+        // Advance time past locktime
+        await advanceTimeAndMine(1000);
+
+        // Attempt refund from non-sender address - should fail
+        await this.swap.senderRefundErc1155(id, amountToSend, secretHash, this.erc1155token.address, tokenId, accounts[1], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+
+        // Successful refund by sender after locktime
+        await this.swap.senderRefundErc1155(id, amountToSend, secretHash, this.erc1155token.address, tokenId, accounts[1], { from: accounts[0] }).should.be.fulfilled;
+
+        // Check the state of the payment
+        const payment = await this.swap.payments(id);
+        assert.equal(payment[2].valueOf(), SENDER_REFUNDED);
+
+        // Check the balance of the token - should be back to the sender (accounts[0])
+        const tokenBalance = await this.erc1155token.balanceOf(accounts[0], tokenId);
+        assert.equal(tokenBalance.toNumber(), amountToSend);
+
+        // Attempting refund again - should fail
+        await this.swap.senderRefundErc1155(id, amountToSend, secretHash, this.erc1155token.address, tokenId, accounts[1], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
     });
 
     it('should allow receiver to spend ETH payment by revealing a secret', async function () {
@@ -402,6 +503,53 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.receiverSpendErc721(id, secretHex, this.erc721token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
     });
 
+    it('should allow receiver to spend ERC1155 payment by revealing a secret', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const tokenId = 1; // Token ID used in Erc1155Token contract
+        const amountToSend = 2; // Amount of tokens to send
+        const params = [
+            id,
+            amountToSend,
+            accounts[1], // Receiver address
+            this.erc1155token.address, // ERC1155 token contract address
+            tokenId,
+            secretHash,
+            lockTime
+        ];
+
+        // Approve and send ERC1155 payment
+        await this.erc1155token.setApprovalForAll(this.swap.address, true, { from: accounts[0] });
+        await this.swap.erc1155Payment(...params, { from: accounts[0] }).should.be.fulfilled;
+
+        // Check the balance of the token before receiver spend payment - should be in swap contract
+        let tokenBalanceBeforeReceiverSpend = await this.erc1155token.balanceOf(this.swap.address, tokenId);
+        assert.equal(tokenBalanceBeforeReceiverSpend.toNumber(), amountToSend);
+
+        // Attempt to spend with invalid secret - should fail
+        await this.swap.receiverSpendErc1155(id, amountToSend, zeroAddr, this.erc1155token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+
+        // Attempt to claim from non-receiver address even with valid secret - should fail
+        await this.swap.receiverSpendErc1155(id, amountToSend, secretHex, this.erc1155token.address, tokenId, accounts[0], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
+
+        // Successful spend by receiver with valid secret
+        await this.swap.receiverSpendErc1155(id, amountToSend, secretHex, this.erc1155token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.fulfilled;
+
+        // Check the state of the payment
+        const payment = await this.swap.payments(id);
+        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
+
+        // Check the balance of the token - should be transferred to the receiver (accounts[1])
+        let tokenBalance = await this.erc1155token.balanceOf(accounts[1], tokenId);
+        assert.equal(tokenBalance.toNumber(), amountToSend);
+
+        // Check that the swap contract no longer holds the tokens
+        tokenBalance = await this.erc1155token.balanceOf(this.swap.address, tokenId);
+        assert.equal(tokenBalance.toNumber(), 0);
+
+        // Attempting to spend again - should fail
+        await this.swap.receiverSpendErc1155(id, amountToSend, secretHex, this.erc1155token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    });
+
     it('should allow receiver to spend ETH payment by revealing a secret even after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
@@ -502,5 +650,44 @@ contract('EtomicSwap', function(accounts) {
 
         // Attempting to spend again - should fail
         await this.swap.receiverSpendErc721(id, secretHex, this.erc721token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+    });
+
+    it('should allow receiver to spend ERC1155 payment by revealing a secret even after locktime', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const tokenId = 1; // Token ID used in Erc1155Token contract
+        const amountToSend = 2; // Amount of tokens to send
+        const params = [
+            id,
+            amountToSend,
+            accounts[1], // Receiver address
+            this.erc1155token.address, // ERC1155 token contract address
+            tokenId,
+            secretHash,
+            lockTime
+        ];
+
+        // Approve and send ERC1155 payment
+        await this.erc1155token.setApprovalForAll(this.swap.address, true, { from: accounts[0] });
+        await this.swap.erc1155Payment(...params, { from: accounts[0] }).should.be.fulfilled;
+
+        await advanceTimeAndMine(1000);
+
+        // Successful spend by receiver with valid secret even after locktime
+        await this.swap.receiverSpendErc1155(id, amountToSend, secretHex, this.erc1155token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.fulfilled;
+
+        // Check the state of the payment
+        const payment = await this.swap.payments(id);
+        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
+
+        // Check the balance of the token - should be transferred to the receiver (accounts[1])
+        let tokenBalance = await this.erc1155token.balanceOf(accounts[1], tokenId);
+        assert.equal(tokenBalance.toNumber(), amountToSend);
+
+        // Check that the swap contract no longer holds the tokens
+        tokenBalance = await this.erc1155token.balanceOf(this.swap.address, tokenId);
+        assert.equal(tokenBalance.toNumber(), 0);
+
+        // Attempting to spend again - should fail
+        await this.swap.receiverSpendErc1155(id, amountToSend, secretHex, this.erc1155token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
     });
 });
