@@ -3,11 +3,12 @@
 pragma solidity ^0.8.23;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract EtomicSwap is ERC165, IERC1155Receiver {
+contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
     enum PaymentState {
         Uninitialized,
         PaymentSent,
@@ -126,7 +127,7 @@ contract EtomicSwap is ERC165, IERC1155Receiver {
         );
 
         IERC721 token = IERC721(_tokenAddress);
-        token.transferFrom(msg.sender, address(this), _tokenId);
+        token.safeTransferFrom(msg.sender, address(this), _tokenId);
         emit PaymentSent(_id);
     }
 
@@ -228,7 +229,7 @@ contract EtomicSwap is ERC165, IERC1155Receiver {
         payments[_id].state = PaymentState.ReceiverSpent;
 
         IERC721 token = IERC721(_tokenAddress);
-        token.transferFrom(address(this), msg.sender, _tokenId);
+        token.safeTransferFrom(address(this), msg.sender, _tokenId);
 
         emit ReceiverSpent(_id, _secret);
     }
@@ -331,7 +332,7 @@ contract EtomicSwap is ERC165, IERC1155Receiver {
         payments[_id].state = PaymentState.SenderRefunded;
 
         IERC721 token = IERC721(_tokenAddress);
-        token.transferFrom(address(this), msg.sender, _tokenId);
+        token.safeTransferFrom(address(this), msg.sender, _tokenId);
 
         emit SenderRefunded(_id);
     }
@@ -382,6 +383,7 @@ contract EtomicSwap is ERC165, IERC1155Receiver {
         uint256, /* value */
         bytes calldata /* data */
     ) external pure override returns (bytes4) {
+        // Return this magic value to confirm receipt of ERC1155 token
         return
             bytes4(
             keccak256(
@@ -397,6 +399,7 @@ contract EtomicSwap is ERC165, IERC1155Receiver {
         uint256[] calldata, /* values */
         bytes calldata /* data */
     ) external pure override returns (bytes4) {
+        // Return this magic value to confirm receipt of ERC1155 tokens
         return
             bytes4(
             keccak256(
@@ -414,5 +417,15 @@ contract EtomicSwap is ERC165, IERC1155Receiver {
         return
             interfaceId == type(IERC1155Receiver).interfaceId ||
             super.supportsInterface(interfaceId);
+    }
+
+    function onERC721Received(
+        address, /* operator */
+        address, /* from */
+        uint256, /* tokenId */
+        bytes calldata /* data */
+    ) external pure override returns (bytes4) {
+        // Return this magic value to confirm receipt of ERC721 token
+        return this.onERC721Received.selector;
     }
 }
