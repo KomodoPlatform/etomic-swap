@@ -384,12 +384,7 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         bytes calldata /* data */
     ) external pure override returns (bytes4) {
         // Return this magic value to confirm receipt of ERC1155 token
-        return
-            bytes4(
-            keccak256(
-                "onERC1155Received(address,address,uint256,uint256,bytes)"
-            )
-        );
+        return this.onERC1155Received.selector;
     }
 
     function onERC1155BatchReceived(
@@ -400,12 +395,7 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         bytes calldata /* data */
     ) external pure override returns (bytes4) {
         // Return this magic value to confirm receipt of ERC1155 tokens
-        return
-            bytes4(
-            keccak256(
-                "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"
-            )
-        );
+        return this.onERC1155BatchReceived.selector;
     }
 
     function supportsInterface(bytes4 interfaceId)
