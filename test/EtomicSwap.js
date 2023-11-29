@@ -131,7 +131,8 @@ contract('EtomicSwap', function(accounts) {
         // approve the swap contract to transfer the token on behalf of accounts[0]
         await this.erc721token.approve(this.swap.address, tokenId, { from: accounts[0] });
         // call the erc721Payment function to send the token to the swap contract
-        await this.swap.erc721Payment(...params, { from: accounts[0] }).should.be.fulfilled;
+        let tx_info = await this.swap.erc721Payment(...params, { from: accounts[0] }).should.be.fulfilled;
+        console.log(tx_info);
 
         // Check the payment lockTime and state
         const payment = await this.swap.payments(id);
