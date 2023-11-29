@@ -96,85 +96,6 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         emit PaymentSent(_id);
     }
 
-    function erc721Payment(
-        bytes32 _id,
-        address _receiver,
-        address _tokenAddress,
-        uint256 _tokenId,
-        bytes20 _secretHash,
-        uint64 _lockTime
-    ) external {
-        require(
-            _receiver != address(0) &&
-            _tokenAddress != address(0) &&
-            payments[_id].state == PaymentState.Uninitialized
-        );
-
-        bytes20 paymentHash = ripemd160(
-            abi.encodePacked(
-                _receiver,
-                msg.sender,
-                _secretHash,
-                _tokenAddress,
-                _tokenId
-            )
-        );
-
-        payments[_id] = Payment(
-            paymentHash,
-            _lockTime,
-            PaymentState.PaymentSent
-        );
-
-        IERC721 token = IERC721(_tokenAddress);
-        token.safeTransferFrom(msg.sender, address(this), _tokenId);
-        emit PaymentSent(_id);
-    }
-
-    function erc1155Payment(
-        bytes32 _id,
-        uint256 _amount,
-        address _receiver,
-        address _tokenAddress,
-        uint256 _tokenId,
-        bytes20 _secretHash,
-        uint64 _lockTime
-    ) external {
-        require(
-            _receiver != address(0) &&
-            _tokenAddress != address(0) &&
-            _amount > 0 &&
-            payments[_id].state == PaymentState.Uninitialized
-        );
-
-        bytes20 paymentHash = ripemd160(
-            abi.encodePacked(
-                _receiver,
-                msg.sender,
-                _secretHash,
-                _tokenAddress,
-                _tokenId,
-                _amount
-            )
-        );
-
-        payments[_id] = Payment(
-            paymentHash,
-            _lockTime,
-            PaymentState.PaymentSent
-        );
-
-        IERC1155 token = IERC1155(_tokenAddress);
-        token.safeTransferFrom(
-            msg.sender,
-            address(this),
-            _tokenId,
-            _amount,
-            ""
-        );
-        emit PaymentSent(_id);
-    }
-
     function receiverSpend(
         bytes32 _id,
         uint256 _amount,
@@ -378,11 +299,41 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
 
     function onERC1155Received(
         address, /* operator */
-        address, /* from */
-        uint256, /* id */
-        uint256, /* value */
-        bytes calldata /* data */
-    ) external pure override returns (bytes4) {
+        address from,
+        uint256 tokenId,
+        uint256 value,
+        bytes calldata data
+    ) external override returns (bytes4) {
+        // Decode the data to extract HTLC parameters
+        (
+            bytes32 id,
+            address receiver,
+            address tokenAddress,
+            bytes20 secretHash,
+            uint64 lockTime
+        ) = abi.decode(data, (bytes32, address, address, bytes20, uint64));
+
+        require(
+            receiver != address(0) &&
+            tokenAddress != address(0) &&
+            value > 0 &&
+            payments[id].state == PaymentState.Uninitialized
+        );
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                receiver,
+                from,
+                secretHash,
+                tokenAddress,
+                tokenId,
+                value
+            )
+        );
+
+        payments[id] = Payment(paymentHash, lockTime, PaymentState.PaymentSent);
+        emit PaymentSent(id);
+
         // Return this magic value to confirm receipt of ERC1155 token
         return this.onERC1155Received.selector;
     }
@@ -394,8 +345,7 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         uint256[] calldata, /* values */
         bytes calldata /* data */
     ) external pure override returns (bytes4) {
-        // Return this magic value to confirm receipt of ERC1155 tokens
-        return this.onERC1155BatchReceived.selector;
+        revert("Batch transfers not supported");
     }
 
     function supportsInterface(bytes4 interfaceId)
@@ -430,15 +380,11 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
             payments[id].state == PaymentState.Uninitialized
         );
 
-        // Create the payment hash
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(receiver, from, secretHash, tokenAddress, tokenId)
         );
 
-        // Create the payment
         payments[id] = Payment(paymentHash, lockTime, PaymentState.PaymentSent);
-
-        // Emit the PaymentSent event
         emit PaymentSent(id);
 
         // Return this magic value to confirm receipt of ERC721 token
