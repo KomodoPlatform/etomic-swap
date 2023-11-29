@@ -28,6 +28,24 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
     event ReceiverSpent(bytes32 id, bytes32 secret);
     event SenderRefunded(bytes32 id);
 
+    enum NftState {
+        Uninitialized,
+        AwaitingToken,
+        TokenReceived,
+        TokenSent
+    }
+
+    struct Nft {
+        bytes20 paymentHash;
+        NftState state;
+    }
+
+    mapping(bytes32 => Nft) public nfts;
+
+    event AwaitingToken(bytes32 id);
+    event TokenReceived(bytes32 id);
+    event TokenSent(bytes32 id);
+
     constructor() {}
 
     function ethPayment(
@@ -107,7 +125,8 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         require(
             _receiver != address(0) &&
             _tokenAddress != address(0) &&
-            payments[_id].state == PaymentState.Uninitialized
+            payments[_id].state == PaymentState.Uninitialized &&
+            nfts[_id].state == NftState.Uninitialized
         );
 
         bytes20 paymentHash = ripemd160(
@@ -126,8 +145,12 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
             PaymentState.PaymentSent
         );
 
+        nfts[_id] = Nft(paymentHash, NftState.AwaitingToken);
+        emit AwaitingToken(_id);
+        bytes memory data = abi.encode(_id, paymentHash);
+
         IERC721 token = IERC721(_tokenAddress);
-        token.safeTransferFrom(msg.sender, address(this), _tokenId);
+        token.safeTransferFrom(msg.sender, address(this), _tokenId, data);
         emit PaymentSent(_id);
     }
 
@@ -394,8 +417,7 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         uint256[] calldata, /* values */
         bytes calldata /* data */
     ) external pure override returns (bytes4) {
-        // Return this magic value to confirm receipt of ERC1155 tokens
-        return this.onERC1155BatchReceived.selector;
+        revert("Batch transfers not supported");
     }
 
     function supportsInterface(bytes4 interfaceId)
@@ -413,8 +435,19 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         address, /* operator */
         address, /* from */
         uint256, /* tokenId */
-        bytes calldata /* data */
-    ) external pure override returns (bytes4) {
+        bytes calldata data
+    ) external override returns (bytes4) {
+        (bytes32 id, bytes20 paymentHash) = abi.decode(
+            data,
+            (bytes32, bytes20)
+        );
+        require(
+            nfts[id].state == NftState.AwaitingToken &&
+            nfts[id].paymentHash == paymentHash,
+            "Invalid token or hash"
+        );
+        nfts[id].state = NftState.TokenReceived;
+        emit TokenReceived(id);
         // Return this magic value to confirm receipt of ERC721 token
         return this.onERC721Received.selector;
     }
