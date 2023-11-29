@@ -119,19 +119,14 @@ contract('EtomicSwap', function(accounts) {
     it('should allow to send ERC721 payment', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const tokenId = 1; // Assuming token ID 1 is minted to accounts[0] in Erc721Token contract
-        const params = [
-            id,
-            accounts[1], // Receiver address
-            this.erc721token.address, // ERC721 token contract address
-            tokenId, // Token ID
-            secretHash,
-            lockTime
-        ];
 
-        // approve the swap contract to transfer the token on behalf of accounts[0]
-        await this.erc721token.approve(this.swap.address, tokenId, { from: accounts[0] });
-        // call the erc721Payment function to send the token to the swap contract
-        await this.swap.erc721Payment(...params, { from: accounts[0] }).should.be.fulfilled;
+        const data = web3.eth.abi.encodeParameters(
+            ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
+            [id, accounts[1], this.erc721token.address, secretHash, lockTime]
+        );
+        // Call safeTransferFrom directly to transfer the token to the EtomicSwap contract
+        let tx_info = await this.erc721token.safeTransferFrom(accounts[0], this.swap.address, tokenId, data).should.be.fulfilled;
+        console.log(tx_info);
 
         // Check the payment lockTime and state
         const payment = await this.swap.payments(id);
@@ -143,7 +138,7 @@ contract('EtomicSwap', function(accounts) {
         assert.equal(tokenOwner, this.swap.address);
 
         // should not allow to send again
-        await this.swap.erc721Payment(...params, { from: accounts[0] }).should.rejectedWith(EVMThrow);
+        await this.erc721token.safeTransferFrom(accounts[0], this.swap.address, tokenId, data).should.be.rejectedWith(EVMThrow);
     });
 
     it('should allow to send ERC1155 payment', async function () {
@@ -296,18 +291,13 @@ contract('EtomicSwap', function(accounts) {
     it('should allow sender to refund ERC721 payment after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const tokenId = 1;
-        const params = [
-            id,
-            accounts[1], // Receiver address
-            this.erc721token.address, // ERC721 token contract address
-            tokenId,
-            secretHash,
-            lockTime
-        ];
 
-        // Approve and send ERC721 payment
-        await this.erc721token.approve(this.swap.address, tokenId, { from: accounts[0] });
-        await this.swap.erc721Payment(...params, { from: accounts[0] }).should.be.fulfilled;
+        const data = web3.eth.abi.encodeParameters(
+            ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
+            [id, accounts[1], this.erc721token.address, secretHash, lockTime]
+        );
+        // Call safeTransferFrom directly to transfer the token to the EtomicSwap contract
+        await this.erc721token.safeTransferFrom(accounts[0], this.swap.address, tokenId, data).should.be.fulfilled;
 
         // Attempt refund before locktime - should fail
         await this.swap.senderRefundErc721(id, secretHash, this.erc721token.address, tokenId, accounts[1], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
@@ -465,18 +455,13 @@ contract('EtomicSwap', function(accounts) {
     it('should allow receiver to spend ERC721 payment by revealing a secret', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const tokenId = 1; // Assuming token ID 1 is minted to accounts[0]
-        const params = [
-            id,
-            accounts[1], // Receiver address
-            this.erc721token.address, // ERC721 token contract address
-            tokenId, // Token ID
-            secretHash,
-            lockTime
-        ];
 
-        // Approve and send ERC721 payment
-        await this.erc721token.approve(this.swap.address, tokenId, { from: accounts[0] });
-        await this.swap.erc721Payment(...params, { from: accounts[0] }).should.be.fulfilled;
+        const data = web3.eth.abi.encodeParameters(
+            ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
+            [id, accounts[1], this.erc721token.address, secretHash, lockTime]
+        );
+        // Call safeTransferFrom directly to transfer the token to the EtomicSwap contract
+        await this.erc721token.safeTransferFrom(accounts[0], this.swap.address, tokenId, data).should.be.fulfilled;
 
         // Check the ownership of the token before receiver spend payment - should be owned by swap contract
         const tokenOwnerBeforeReceiverSpend = await this.erc721token.ownerOf(tokenId);
@@ -622,18 +607,13 @@ contract('EtomicSwap', function(accounts) {
     it('should allow receiver to spend ERC721 payment by revealing a secret even after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const tokenId = 1; // Assuming token ID 1 is minted to accounts[0]
-        const params = [
-            id,
-            accounts[1], // Receiver address
-            this.erc721token.address, // ERC721 token contract address
-            tokenId, // Token ID
-            secretHash,
-            lockTime
-        ];
 
-        // Approve and send ERC721 payment
-        await this.erc721token.approve(this.swap.address, tokenId, { from: accounts[0] });
-        await this.swap.erc721Payment(...params, { from: accounts[0] }).should.be.fulfilled;
+        const data = web3.eth.abi.encodeParameters(
+            ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
+            [id, accounts[1], this.erc721token.address, secretHash, lockTime]
+        );
+        // Call safeTransferFrom directly to transfer the token to the EtomicSwap contract
+        await this.erc721token.safeTransferFrom(accounts[0], this.swap.address, tokenId, data).should.be.fulfilled;
 
         await advanceTimeAndMine(1000);
 

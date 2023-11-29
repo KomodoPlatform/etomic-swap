@@ -411,10 +411,36 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
 
     function onERC721Received(
         address, /* operator */
-        address, /* from */
-        uint256, /* tokenId */
-        bytes calldata /* data */
-    ) external pure override returns (bytes4) {
+        address from,
+        uint256 tokenId,
+        bytes calldata data
+    ) external override returns (bytes4) {
+        // Decode the data to extract HTLC parameters
+        (
+            bytes32 id,
+            address receiver,
+            address tokenAddress,
+            bytes20 secretHash,
+            uint64 lockTime
+        ) = abi.decode(data, (bytes32, address, address, bytes20, uint64));
+
+        require(
+            receiver != address(0) &&
+            tokenAddress != address(0) &&
+            payments[id].state == PaymentState.Uninitialized
+        );
+
+        // Create the payment hash
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(receiver, from, secretHash, tokenAddress, tokenId)
+        );
+
+        // Create the payment
+        payments[id] = Payment(paymentHash, lockTime, PaymentState.PaymentSent);
+
+        // Emit the PaymentSent event
+        emit PaymentSent(id);
+
         // Return this magic value to confirm receipt of ERC721 token
         return this.onERC721Received.selector;
     }
