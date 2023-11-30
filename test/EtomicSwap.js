@@ -42,6 +42,15 @@ const secret = crypto.randomBytes(32);
 const secretHash = '0x' + new RIPEMD160().update(crypto.createHash('sha256').update(secret).digest()).digest('hex');
 const secretHex = '0x' + secret.toString('hex');
 
+let invalidSecret;
+let invalidSecretHex;
+
+// generate invalid secretHex which is not equal to secretHex
+do {
+    invalidSecret = crypto.randomBytes(32);
+    invalidSecretHex = '0x' + invalidSecret.toString('hex');
+} while (invalidSecretHex === secretHex);
+
 const zeroAddr = '0x0000000000000000000000000000000000000000';
 
 contract('EtomicSwap', function(accounts) {
@@ -355,7 +364,7 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.fulfilled;
 
         // should not allow to spend with invalid secret
-        await this.swap.receiverSpend(id, web3.utils.toWei('1'), id, zeroAddr, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), invalidSecretHex, zeroAddr, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
         // should not allow to spend invalid amount
         await this.swap.receiverSpend(id, web3.utils.toWei('2'), secretHex, zeroAddr, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
@@ -401,7 +410,7 @@ contract('EtomicSwap', function(accounts) {
         await this.swap.erc20Payment(...params).should.be.fulfilled;
 
         // should not allow to spend with invalid secret
-        await this.swap.receiverSpend(id, web3.utils.toWei('1'), id, this.token.address, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+        await this.swap.receiverSpend(id, web3.utils.toWei('1'), invalidSecretHex, this.token.address, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
         // should not allow to spend invalid amount
         await this.swap.receiverSpend(id, web3.utils.toWei('2'), secretHex, this.token.address, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
@@ -443,7 +452,7 @@ contract('EtomicSwap', function(accounts) {
         assert.equal(tokenOwnerBeforeReceiverSpend, this.swap.address);
 
         // Attempt to spend with invalid secret - should fail
-        await this.swap.receiverSpendErc721(id, zeroAddr, this.erc721token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+        await this.swap.receiverSpendErc721(id, invalidSecretHex, this.erc721token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
         // Attempt to claim from non-receiver address even with valid secret - should fail
         await this.swap.receiverSpendErc721(id, secretHex, this.erc721token.address, tokenId, accounts[0], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
@@ -480,7 +489,7 @@ contract('EtomicSwap', function(accounts) {
         assert.equal(tokenBalanceBeforeReceiverSpend.toNumber(), amountToSend);
 
         // Attempt to spend with invalid secret - should fail
-        await this.swap.receiverSpendErc1155(id, amountToSend, zeroAddr, this.erc1155token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+        await this.swap.receiverSpendErc1155(id, amountToSend, invalidSecretHex, this.erc1155token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
 
         // Attempt to claim from non-receiver address even with valid secret - should fail
         await this.swap.receiverSpendErc1155(id, amountToSend, secretHex, this.erc1155token.address, tokenId, accounts[0], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);

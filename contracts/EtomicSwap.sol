@@ -298,7 +298,7 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
     }
 
     function onERC1155Received(
-        address, /* operator */
+        address operator,
         address from,
         uint256 tokenId,
         uint256 value,
@@ -316,8 +316,11 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         require(
             receiver != address(0) &&
             tokenAddress != address(0) &&
+            msg.sender == tokenAddress &&
+            operator == from &&
             value > 0 &&
-            payments[id].state == PaymentState.Uninitialized
+            payments[id].state == PaymentState.Uninitialized &&
+            !isContract(receiver)
         );
 
         bytes20 paymentHash = ripemd160(
@@ -360,7 +363,7 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
     }
 
     function onERC721Received(
-        address, /* operator */
+        address operator,
         address from,
         uint256 tokenId,
         bytes calldata data
@@ -377,7 +380,10 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         require(
             receiver != address(0) &&
             tokenAddress != address(0) &&
-            payments[id].state == PaymentState.Uninitialized
+            msg.sender == tokenAddress &&
+            operator == from &&
+            payments[id].state == PaymentState.Uninitialized &&
+            !isContract(receiver)
         );
 
         bytes20 paymentHash = ripemd160(
@@ -389,5 +395,13 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
 
         // Return this magic value to confirm receipt of ERC721 token
         return this.onERC721Received.selector;
+    }
+
+    function isContract(address account) internal view returns (bool) {
+        uint256 size;
+        assembly {
+            size := extcodesize(account)
+        }
+        return size > 0;
     }
 }
