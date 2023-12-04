@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -31,270 +31,250 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
     constructor() {}
 
     function ethPayment(
-        bytes32 _id,
-        address _receiver,
-        bytes20 _secretHash,
-        uint64 _lockTime
+        bytes32 id,
+        address receiver,
+        bytes20 secretHash,
+        uint64 lockTime
     ) external payable {
         require(
-            _receiver != address(0) &&
+            receiver != address(0) &&
             msg.value > 0 &&
-            payments[_id].state == PaymentState.Uninitialized
+            payments[id].state == PaymentState.Uninitialized
         );
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
-                _receiver,
+                receiver,
                 msg.sender,
-                _secretHash,
+                secretHash,
                 address(0),
                 msg.value
             )
         );
 
-        payments[_id] = Payment(
-            paymentHash,
-            _lockTime,
-            PaymentState.PaymentSent
-        );
+        payments[id] = Payment(paymentHash, lockTime, PaymentState.PaymentSent);
 
-        emit PaymentSent(_id);
+        emit PaymentSent(id);
     }
 
     function erc20Payment(
-        bytes32 _id,
-        uint256 _amount,
-        address _tokenAddress,
-        address _receiver,
-        bytes20 _secretHash,
-        uint64 _lockTime
+        bytes32 id,
+        uint256 amount,
+        address tokenAddress,
+        address receiver,
+        bytes20 secretHash,
+        uint64 lockTime
     ) external payable {
         require(
-            _receiver != address(0) &&
-            _amount > 0 &&
-            payments[_id].state == PaymentState.Uninitialized
+            receiver != address(0) &&
+            amount > 0 &&
+            payments[id].state == PaymentState.Uninitialized
         );
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
-                _receiver,
+                receiver,
                 msg.sender,
-                _secretHash,
-                _tokenAddress,
-                _amount
+                secretHash,
+                tokenAddress,
+                amount
             )
         );
 
-        payments[_id] = Payment(
-            paymentHash,
-            _lockTime,
-            PaymentState.PaymentSent
-        );
+        payments[id] = Payment(paymentHash, lockTime, PaymentState.PaymentSent);
 
-        IERC20 token = IERC20(_tokenAddress);
-        require(token.transferFrom(msg.sender, address(this), _amount));
-        emit PaymentSent(_id);
+        IERC20 token = IERC20(tokenAddress);
+        require(token.transferFrom(msg.sender, address(this), amount));
+        emit PaymentSent(id);
     }
 
     function receiverSpend(
-        bytes32 _id,
-        uint256 _amount,
-        bytes32 _secret,
-        address _tokenAddress,
-        address _sender
+        bytes32 id,
+        uint256 amount,
+        bytes32 secret,
+        address tokenAddress,
+        address sender
     ) external {
-        require(payments[_id].state == PaymentState.PaymentSent);
+        require(payments[id].state == PaymentState.PaymentSent);
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 msg.sender,
-                _sender,
-                ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
-                _tokenAddress,
-                _amount
+                sender,
+                ripemd160(abi.encodePacked(sha256(abi.encodePacked(secret)))),
+                tokenAddress,
+                amount
             )
         );
 
-        require(paymentHash == payments[_id].paymentHash);
-        payments[_id].state = PaymentState.ReceiverSpent;
-        if (_tokenAddress == address(0)) {
-            payable(msg.sender).transfer(_amount);
+        require(paymentHash == payments[id].paymentHash);
+        payments[id].state = PaymentState.ReceiverSpent;
+        if (tokenAddress == address(0)) {
+            payable(msg.sender).transfer(amount);
         } else {
-            IERC20 token = IERC20(_tokenAddress);
-            require(token.transfer(msg.sender, _amount));
+            IERC20 token = IERC20(tokenAddress);
+            require(token.transfer(msg.sender, amount));
         }
 
-        emit ReceiverSpent(_id, _secret);
+        emit ReceiverSpent(id, secret);
     }
 
     function receiverSpendErc721(
-        bytes32 _id,
-        bytes32 _secret,
-        address _tokenAddress,
-        uint256 _tokenId,
-        address _sender
+        bytes32 id,
+        bytes32 secret,
+        address tokenAddress,
+        uint256 tokenId,
+        address sender
     ) external {
-        require(payments[_id].state == PaymentState.PaymentSent);
+        require(payments[id].state == PaymentState.PaymentSent);
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 msg.sender,
-                _sender,
-                ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
-                _tokenAddress,
-                _tokenId
+                sender,
+                ripemd160(abi.encodePacked(sha256(abi.encodePacked(secret)))),
+                tokenAddress,
+                tokenId
             )
         );
 
-        require(paymentHash == payments[_id].paymentHash);
-        payments[_id].state = PaymentState.ReceiverSpent;
+        require(paymentHash == payments[id].paymentHash);
+        payments[id].state = PaymentState.ReceiverSpent;
 
-        IERC721 token = IERC721(_tokenAddress);
-        token.safeTransferFrom(address(this), msg.sender, _tokenId);
+        IERC721 token = IERC721(tokenAddress);
+        token.safeTransferFrom(address(this), msg.sender, tokenId);
 
-        emit ReceiverSpent(_id, _secret);
+        emit ReceiverSpent(id, secret);
     }
 
     function receiverSpendErc1155(
-        bytes32 _id,
-        uint256 _amount,
-        bytes32 _secret,
-        address _tokenAddress,
-        uint256 _tokenId,
-        address _sender
+        bytes32 id,
+        uint256 amount,
+        bytes32 secret,
+        address tokenAddress,
+        uint256 tokenId,
+        address sender
     ) external {
-        require(payments[_id].state == PaymentState.PaymentSent);
+        require(payments[id].state == PaymentState.PaymentSent);
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 msg.sender,
-                _sender,
-                ripemd160(abi.encodePacked(sha256(abi.encodePacked(_secret)))),
-                _tokenAddress,
-                _tokenId,
-                _amount
+                sender,
+                ripemd160(abi.encodePacked(sha256(abi.encodePacked(secret)))),
+                tokenAddress,
+                tokenId,
+                amount
             )
         );
 
-        require(paymentHash == payments[_id].paymentHash);
-        payments[_id].state = PaymentState.ReceiverSpent;
+        require(paymentHash == payments[id].paymentHash);
+        payments[id].state = PaymentState.ReceiverSpent;
 
-        IERC1155 token = IERC1155(_tokenAddress);
-        token.safeTransferFrom(
-            address(this),
-            msg.sender,
-            _tokenId,
-            _amount,
-            ""
-        );
+        IERC1155 token = IERC1155(tokenAddress);
+        token.safeTransferFrom(address(this), msg.sender, tokenId, amount, "");
 
-        emit ReceiverSpent(_id, _secret);
+        emit ReceiverSpent(id, secret);
     }
 
     function senderRefund(
-        bytes32 _id,
-        uint256 _amount,
-        bytes20 _paymentHash,
-        address _tokenAddress,
-        address _receiver
+        bytes32 id,
+        uint256 amount,
+        bytes20 secretHash,
+        address tokenAddress,
+        address receiver
     ) external {
-        require(payments[_id].state == PaymentState.PaymentSent);
+        require(payments[id].state == PaymentState.PaymentSent);
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
-                _receiver,
+                receiver,
                 msg.sender,
-                _paymentHash,
-                _tokenAddress,
-                _amount
+                secretHash,
+                tokenAddress,
+                amount
             )
         );
 
         require(
-            paymentHash == payments[_id].paymentHash &&
-            block.timestamp >= payments[_id].lockTime
+            paymentHash == payments[id].paymentHash &&
+            block.timestamp >= payments[id].lockTime
         );
 
-        payments[_id].state = PaymentState.SenderRefunded;
+        payments[id].state = PaymentState.SenderRefunded;
 
-        if (_tokenAddress == address(0)) {
-            payable(msg.sender).transfer(_amount);
+        if (tokenAddress == address(0)) {
+            payable(msg.sender).transfer(amount);
         } else {
-            IERC20 token = IERC20(_tokenAddress);
-            require(token.transfer(msg.sender, _amount));
+            IERC20 token = IERC20(tokenAddress);
+            require(token.transfer(msg.sender, amount));
         }
 
-        emit SenderRefunded(_id);
+        emit SenderRefunded(id);
     }
 
     function senderRefundErc721(
-        bytes32 _id,
-        bytes20 _paymentHash,
-        address _tokenAddress,
-        uint256 _tokenId,
-        address _receiver
+        bytes32 id,
+        bytes20 secretHash,
+        address tokenAddress,
+        uint256 tokenId,
+        address receiver
     ) external {
-        require(payments[_id].state == PaymentState.PaymentSent);
+        require(payments[id].state == PaymentState.PaymentSent);
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
-                _receiver,
+                receiver,
                 msg.sender,
-                _paymentHash,
-                _tokenAddress,
-                _tokenId
+                secretHash,
+                tokenAddress,
+                tokenId
             )
         );
 
         require(
-            paymentHash == payments[_id].paymentHash &&
-            block.timestamp >= payments[_id].lockTime
+            paymentHash == payments[id].paymentHash &&
+            block.timestamp >= payments[id].lockTime
         );
-        payments[_id].state = PaymentState.SenderRefunded;
+        payments[id].state = PaymentState.SenderRefunded;
 
-        IERC721 token = IERC721(_tokenAddress);
-        token.safeTransferFrom(address(this), msg.sender, _tokenId);
+        IERC721 token = IERC721(tokenAddress);
+        token.safeTransferFrom(address(this), msg.sender, tokenId);
 
-        emit SenderRefunded(_id);
+        emit SenderRefunded(id);
     }
 
     function senderRefundErc1155(
-        bytes32 _id,
-        uint256 _amount,
-        bytes20 _paymentHash,
-        address _tokenAddress,
-        uint256 _tokenId,
-        address _receiver
+        bytes32 id,
+        uint256 amount,
+        bytes20 secretHash,
+        address tokenAddress,
+        uint256 tokenId,
+        address receiver
     ) external {
-        require(payments[_id].state == PaymentState.PaymentSent);
+        require(payments[id].state == PaymentState.PaymentSent);
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
-                _receiver,
+                receiver,
                 msg.sender,
-                _paymentHash,
-                _tokenAddress,
-                _tokenId,
-                _amount
+                secretHash,
+                tokenAddress,
+                tokenId,
+                amount
             )
         );
 
         require(
-            paymentHash == payments[_id].paymentHash &&
-            block.timestamp >= payments[_id].lockTime
+            paymentHash == payments[id].paymentHash &&
+            block.timestamp >= payments[id].lockTime
         );
-        payments[_id].state = PaymentState.SenderRefunded;
+        payments[id].state = PaymentState.SenderRefunded;
 
-        IERC1155 token = IERC1155(_tokenAddress);
-        token.safeTransferFrom(
-            address(this),
-            msg.sender,
-            _tokenId,
-            _amount,
-            ""
-        );
+        IERC1155 token = IERC1155(tokenAddress);
+        token.safeTransferFrom(address(this), msg.sender, tokenId, amount, "");
 
-        emit SenderRefunded(_id);
+        emit SenderRefunded(id);
     }
 
     function onERC1155Received(
