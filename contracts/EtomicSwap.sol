@@ -83,9 +83,12 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
 
         payments[id] = Payment(paymentHash, lockTime, PaymentState.PaymentSent);
 
+        // Emitting the event before making the external call
+        emit PaymentSent(id);
+
+        // Now performing the external interaction
         IERC20 token = IERC20(tokenAddress);
         require(token.transferFrom(msg.sender, address(this), amount));
-        emit PaymentSent(id);
     }
 
     function receiverSpend(
@@ -95,8 +98,8 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         address tokenAddress,
         address sender
     ) external {
+        // Checks
         require(payments[id].state == PaymentState.PaymentSent);
-
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 msg.sender,
@@ -106,17 +109,21 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
                 amount
             )
         );
-
         require(paymentHash == payments[id].paymentHash);
+
+        // Effects
         payments[id].state = PaymentState.ReceiverSpent;
+
+        // Event Emission
+        emit ReceiverSpent(id, secret);
+
+        // Interactions
         if (tokenAddress == address(0)) {
             payable(msg.sender).transfer(amount);
         } else {
             IERC20 token = IERC20(tokenAddress);
             require(token.transfer(msg.sender, amount));
         }
-
-        emit ReceiverSpent(id, secret);
     }
 
     function receiverSpendErc721(
@@ -126,8 +133,8 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         uint256 tokenId,
         address sender
     ) external {
+        // Checks
         require(payments[id].state == PaymentState.PaymentSent);
-
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 msg.sender,
@@ -137,14 +144,17 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
                 tokenId
             )
         );
-
         require(paymentHash == payments[id].paymentHash);
+
+        // Effects
         payments[id].state = PaymentState.ReceiverSpent;
 
+        // Event Emission
+        emit ReceiverSpent(id, secret);
+
+        // Interactions
         IERC721 token = IERC721(tokenAddress);
         token.safeTransferFrom(address(this), msg.sender, tokenId);
-
-        emit ReceiverSpent(id, secret);
     }
 
     function receiverSpendErc1155(
@@ -155,8 +165,8 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         uint256 tokenId,
         address sender
     ) external {
+        // Checks
         require(payments[id].state == PaymentState.PaymentSent);
-
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 msg.sender,
@@ -167,14 +177,17 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
                 amount
             )
         );
-
         require(paymentHash == payments[id].paymentHash);
+
+        // Effects
         payments[id].state = PaymentState.ReceiverSpent;
 
+        // Event Emission
+        emit ReceiverSpent(id, secret);
+
+        // Interactions
         IERC1155 token = IERC1155(tokenAddress);
         token.safeTransferFrom(address(this), msg.sender, tokenId, amount, "");
-
-        emit ReceiverSpent(id, secret);
     }
 
     function senderRefund(
@@ -185,7 +198,6 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         address receiver
     ) external {
         require(payments[id].state == PaymentState.PaymentSent);
-
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 receiver,
@@ -195,7 +207,6 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
                 amount
             )
         );
-
         require(
             paymentHash == payments[id].paymentHash &&
             block.timestamp >= payments[id].lockTime
@@ -203,14 +214,14 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
 
         payments[id].state = PaymentState.SenderRefunded;
 
+        emit SenderRefunded(id);
+
         if (tokenAddress == address(0)) {
             payable(msg.sender).transfer(amount);
         } else {
             IERC20 token = IERC20(tokenAddress);
             require(token.transfer(msg.sender, amount));
         }
-
-        emit SenderRefunded(id);
     }
 
     function senderRefundErc721(
@@ -221,7 +232,6 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         address receiver
     ) external {
         require(payments[id].state == PaymentState.PaymentSent);
-
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 receiver,
@@ -231,17 +241,17 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
                 tokenId
             )
         );
-
         require(
             paymentHash == payments[id].paymentHash &&
             block.timestamp >= payments[id].lockTime
         );
+
         payments[id].state = PaymentState.SenderRefunded;
+
+        emit SenderRefunded(id);
 
         IERC721 token = IERC721(tokenAddress);
         token.safeTransferFrom(address(this), msg.sender, tokenId);
-
-        emit SenderRefunded(id);
     }
 
     function senderRefundErc1155(
@@ -253,7 +263,6 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         address receiver
     ) external {
         require(payments[id].state == PaymentState.PaymentSent);
-
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 receiver,
@@ -264,17 +273,17 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
                 amount
             )
         );
-
         require(
             paymentHash == payments[id].paymentHash &&
             block.timestamp >= payments[id].lockTime
         );
+
         payments[id].state = PaymentState.SenderRefunded;
+
+        emit SenderRefunded(id);
 
         IERC1155 token = IERC1155(tokenAddress);
         token.safeTransferFrom(address(this), msg.sender, tokenId, amount, "");
-
-        emit SenderRefunded(id);
     }
 
     function onERC1155Received(
