@@ -42,14 +42,8 @@ const secret = crypto.randomBytes(32);
 const secretHash = '0x' + new RIPEMD160().update(crypto.createHash('sha256').update(secret).digest()).digest('hex');
 const secretHex = '0x' + secret.toString('hex');
 
-let invalidSecret;
-let invalidSecretHex;
-
-// generate invalid secretHex which is not equal to secretHex
-do {
-    invalidSecret = crypto.randomBytes(32);
-    invalidSecretHex = '0x' + invalidSecret.toString('hex');
-} while (invalidSecretHex === secretHex);
+const invalidSecret = crypto.randomBytes(32);
+const invalidSecretHex = '0x' + invalidSecret.toString('hex');
 
 const zeroAddr = '0x0000000000000000000000000000000000000000';
 

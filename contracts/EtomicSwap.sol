@@ -134,7 +134,10 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         address sender
     ) external {
         // Checks
-        require(payments[id].state == PaymentState.PaymentSent);
+        require(
+            payments[id].state == PaymentState.PaymentSent &&
+            msg.sender == tx.origin
+        );
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 msg.sender,
@@ -166,7 +169,10 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         address sender
     ) external {
         // Checks
-        require(payments[id].state == PaymentState.PaymentSent);
+        require(
+            payments[id].state == PaymentState.PaymentSent &&
+            msg.sender == tx.origin
+        );
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 msg.sender,
