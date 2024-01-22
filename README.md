@@ -1,6 +1,6 @@
-# Etomic Swap Smart Contracts for BarterDex platform.
+# Etomic Swap Smart Contracts for Komodo SDK.
 [![Build Status](https://travis-ci.org/artemii235/etomic-swap.svg?branch=master)](https://travis-ci.org/artemii235/etomic-swap)  
-Etomic swap Smart Contract is implemented to support ETH and ERC20 atomic swaps on BarterDex platform.
+Etomic swap Smart Contract is implemented to support ETH and ERC20 atomic swaps on Komodo SDK.
 Please note that this project is not production ready yet!
 
 ## Swap workflow
@@ -17,13 +17,14 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 ## Project structure
 
 1. `contracts` - Smart Contracts source code.
+1. `migrations` - Deployment scripts.
 1. `test` - Smart contracts unit tests.
 
 ## How to setup dev environment?
 
 1. Install docker.
-1. Run `docker-compose build`.
 1. `cp .env.empty .env`.
+1. Run `docker-compose build`.
 1. Start containers `docker-compose up -d`.
 1. Install project dependencies: `docker-compose exec workspace yarn`.
 1. To run tests: `docker-compose exec workspace truffle test`.
@@ -35,5 +36,21 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 ## Useful links for smart contracts development
 
 1. Truffle suite - https://github.com/trufflesuite/truffle
-1. Ganache-cli (EthereumJS Testrpc) - https://github.com/trufflesuite/ganache-cli
-1. Zeppelin Solidity - https://github.com/OpenZeppelin/zeppelin-solidity
+1. Ganache (EthereumJS Testrpc) - https://github.com/trufflesuite/ganache
+1. OpenZeppelin Contracts - https://github.com/OpenZeppelin/openzeppelin-contracts
+
+## Contribution Guide
+
+- Run Docker tests to ensure that the project is set up successfully.
+- Write tests for new contracts and functionalities.
+- Run tests to confirm that new implementations work correctly.
+- Format Solidity code before opening a pull request (PR). For formatting, you can use Remix Online IDE - https://remix.ethereum.org/
+
+## Where Can I Write Solidity Code?
+
+### Notes for Those Without an IDE:
+Using Remix Online IDE is sufficient. There's no need to install anything locally.
+
+### Notes for JetBrains or Visual Studio Code (VSCode) Users:
+- These IDEs offer Solidity plugins, which can simplify your workflow. However, Remix Online IDE is also a viable option.
+- To index JavaScript code, execute the Docker commands as mentioned. Necessary dependencies will be downloaded, enabling the IDE to index the rest of the code.

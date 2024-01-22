@@ -1,10 +1,15 @@
-FROM mhart/alpine-node:11
+FROM node:19-bullseye-slim
 
-RUN apk update && apk upgrade && apk add git && apk add python && apk add make && apk add g++
+RUN apt-get update && apt-get install -y \
+    git \
+    python3 \
+    make \
+    g++
 
 ADD . /usr/src/rpc
 
 WORKDIR /usr/src/rpc
-RUN yarn
+RUN git config --global url."https://".insteadOf git://
+RUN yarn install
 
 CMD yarn rpc
