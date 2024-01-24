@@ -27,7 +27,9 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 1. Run `docker-compose build`.
 1. Start containers `docker-compose up -d`.
 1. Install project dependencies: `docker-compose exec workspace yarn`.
-1. To run tests: `docker-compose exec workspace truffle test`.
+1. To run tests: `docker-compose exec workspace hardhat test`.
+1. To clean artifacts and cache: `docker-compose exec workspace npx hardhat clean`.
+1. Stop containers `docker-compose down`.
 
 ## Related links
 
