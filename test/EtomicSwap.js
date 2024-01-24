@@ -86,8 +86,7 @@ describe("EtomicSwap", function() {
             secretHash,
             lockTime
         ];
-        await expect(etomicSwap.ethPayment(...params, { value: ethers.parseEther('1') }))
-            .to.be.fulfilled;
+        await etomicSwap.ethPayment(...params, { value: ethers.parseEther('1') }).should.be.fulfilled;
 
         const payment = await etomicSwap.payments(id);
 
@@ -95,8 +94,7 @@ describe("EtomicSwap", function() {
         expect(Number(payment[2])).to.equal(PAYMENT_SENT); // status
 
         // Check that it should not allow to send again
-        await expect(etomicSwap.ethPayment(...params, { value: ethers.parseEther('1') }))
-            .to.be.rejected;
+        await etomicSwap.ethPayment(...params, { value: ethers.parseEther('1') }).should.be.rejected;
     });
 
     it('should allow to send ERC20 payment', async function () {
@@ -113,7 +111,7 @@ describe("EtomicSwap", function() {
         ];
 
         await token.approve(etomicSwap.target, ethers.parseEther('1'));
-        await expect(etomicSwap.erc20Payment(...params)).to.be.fulfilled;
+        await etomicSwap.erc20Payment(...params).should.be.fulfilled;
 
         // Check contract token balance
         const balance = await token.balanceOf(etomicSwap.target);
@@ -126,7 +124,7 @@ describe("EtomicSwap", function() {
         expect(payment[2]).to.equal(BigInt(PAYMENT_SENT));
 
         // should not allow to deposit again
-        await expect(etomicSwap.erc20Payment(...params)).to.be.rejected;
+        await etomicSwap.erc20Payment(...params).should.be.rejected;
     });
 
     it('should allow to send ERC721 payment', async function () {
@@ -140,7 +138,7 @@ describe("EtomicSwap", function() {
         );
         // Call safeTransferFrom directly to transfer the token to the EtomicSwap contract.
         // Explicitly specify the method signature.
-        await erc721token.connect(accounts[0])['safeTransferFrom(address,address,uint256,bytes)'](
+        await erc721token['safeTransferFrom(address,address,uint256,bytes)'](
             accounts[0].address,
             etomicSwap.target,
             tokenId,
@@ -155,10 +153,13 @@ describe("EtomicSwap", function() {
         const tokenOwner = await erc721token.ownerOf(tokenId);
         expect(tokenOwner).to.equal(etomicSwap.target);
 
-        // should not allow to send again
-        await expect(
-            erc721token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, data)
-        ).to.be.rejected;
+        // Should not allow to send again
+        await erc721token['safeTransferFrom(address,address,uint256,bytes)'](
+            accounts[0].address,
+            etomicSwap.target,
+            tokenId,
+            data)
+            .should.be.rejected;
     });
 
     it('should allow to send ERC1155 payment', async function () {
@@ -172,7 +173,7 @@ describe("EtomicSwap", function() {
             [id, accounts[1].address, erc1155token.target, secretHash, lockTime]
         );
         // Call safeTransferFrom directly to transfer the tokens to the EtomicSwap contract
-        await erc1155token.connect(accounts[0]).safeTransferFrom(
+        await erc1155token.safeTransferFrom(
             accounts[0].address,
             etomicSwap.target,
             tokenId,
@@ -190,13 +191,13 @@ describe("EtomicSwap", function() {
         expect(tokenBalance).to.equal(BigInt(amountToSend));
 
         // Check sending same params again - should fail
-        await expect(erc1155token.connect(accounts[0]).safeTransferFrom(
+        await erc1155token.safeTransferFrom(
             accounts[0].address,
             etomicSwap.target,
             tokenId,
             amountToSend,
             data
-        )).to.be.rejected
+        ).should.be.rejected
 
         // sender should be capable to send more tokens, if they have it
         const id1 = '0x' + crypto.randomBytes(32).toString('hex');
@@ -204,7 +205,7 @@ describe("EtomicSwap", function() {
             ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
             [id1, accounts[1].address, erc1155token.target, secretHash, lockTime]
         );
-        await erc1155token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, 1, data1);
+        await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, 1, data1).should.be.fulfilled;
 
         // Check sending more tokens than the sender owns - should fail
         const id2 = '0x' + crypto.randomBytes(32).toString('hex');
@@ -212,7 +213,7 @@ describe("EtomicSwap", function() {
             ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
             [id2, accounts[1].address, erc1155token.target, secretHash, lockTime]
         );
-        await erc1155token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, 1, data2).should.be.rejected;
+        await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, 1, data2).should.be.rejected;
     });
 
     it('should allow sender to refund ETH payment after locktime', async function () {
@@ -225,25 +226,23 @@ describe("EtomicSwap", function() {
         ];
 
         // Not allow to refund if payment was not sent
-        await expect(etomicSwap.senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address))
-            .to.be.rejected;
+        await etomicSwap.senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address)
+            .should.be.rejected;
 
-        await expect(etomicSwap.ethPayment(...params, { value: ethers.parseEther('1') })).to.be.fulfilled;
+        await etomicSwap.ethPayment(...params, { value: ethers.parseEther('1') }).should.be.fulfilled;
 
         // Not allow to refund before locktime
-        await expect(etomicSwap.senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address))
-            .to.be.rejected;
+        await etomicSwap.senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejected;
 
         // Simulate time passing to exceed the locktime
         await advanceTimeAndMine(1000);
 
         // Not allow to call refund from non-sender address
-        await expect(etomicSwap.connect(accounts[1]).senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address))
-            .to.be.rejected;
+        await etomicSwap.senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address, { from: accounts[1] })
+            .should.be.rejected;
 
         // Not allow to refund invalid amount
-        await expect(etomicSwap.senderRefund(id, ethers.parseEther('2'), secretHash, zeroAddr, accounts[1].address))
-            .to.be.rejected;
+        await etomicSwap.senderRefund(id, ethers.parseEther('2'), secretHash, zeroAddr, accounts[1].address).should.be.rejected;
 
         // Success refund
         const balanceBefore = await ethers.provider.getBalance(accounts[0].address);
@@ -263,8 +262,7 @@ describe("EtomicSwap", function() {
         expect(payment.state).to.equal(BigInt(SENDER_REFUNDED));
 
         // Not allow to refund again
-        await expect(etomicSwap.senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address))
-            .to.be.rejected;
+        await etomicSwap.senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejected;
     });
 
     it('should allow sender to refund ERC20 payment after locktime', async function () {
