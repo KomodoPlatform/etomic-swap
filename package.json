@@ -14,10 +14,7 @@
     "chai": "^4.3.10",
     "chai-as-promised": "^7.1.1",
     "@openzeppelin/contracts": "^5.0.0",
-    "request": "^2.83.0",
-    "request-promise-native": "^1.0.5",
-    "ripemd160": "^2.0.1",
-    "sol-merger": "^4.4.0"
+    "ripemd160": "^2.0.1"
   },
   "devDependencies": {
     "hardhat": "^2.19.4",
