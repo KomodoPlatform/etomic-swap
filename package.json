@@ -4,8 +4,7 @@
   "description": "Etomic swap smart contract and helpers",
   "main": "index.js",
   "scripts": {
-    "rpc": "node startRPC.js",
-    "test": "truffle test",
+    "test": "npx hardhat test",
     "clean": "rm -rf merge",
     "merge": "node node_modules/sol-merger/bin/sol-merger.js './contracts/*.sol' ./merge"
   },
@@ -14,12 +13,15 @@
   "dependencies": {
     "chai": "^4.3.10",
     "chai-as-promised": "^7.1.1",
-    "ganache": "^7.9.1",
     "@openzeppelin/contracts": "^5.0.0",
     "request": "^2.83.0",
     "request-promise-native": "^1.0.5",
     "ripemd160": "^2.0.1",
-    "sol-merger": "^4.4.0",
-    "web3": "^4.2.2"
+    "sol-merger": "^4.4.0"
+  },
+  "devDependencies": {
+    "hardhat": "^2.19.4",
+    "@nomicfoundation/hardhat-ethers": "^3.0.5",
+    "ethers": "^6.10.0"
   }
 }
