@@ -1,8 +1,14 @@
-const { expect } = require("chai");
-const { ethers} = require("hardhat");
+const {
+    expect
+} = require("chai");
+const {
+    ethers
+} = require("hardhat");
 const crypto = require('crypto');
 const RIPEMD160 = require('ripemd160');
-const { AbiCoder } = require("ethers");
+const {
+    AbiCoder
+} = require("ethers");
 
 require('chai')
     .use(require('chai-as-promised'))
@@ -87,7 +93,9 @@ describe("EtomicSwap", function() {
             lockTime
         ];
         // Make the ETH payment
-        await etomicSwap.connect(accounts[0]).ethPayment(...params, { value: ethers.parseEther('1') }).should.be.fulfilled;
+        await etomicSwap.connect(accounts[0]).ethPayment(...params, {
+            value: ethers.parseEther('1')
+        }).should.be.fulfilled;
 
         const payment = await etomicSwap.payments(id);
 
@@ -95,10 +103,12 @@ describe("EtomicSwap", function() {
         expect(Number(payment[2])).to.equal(PAYMENT_SENT); // status
 
         // Check that it should not allow to send again
-        await etomicSwap.connect(accounts[0]).ethPayment(...params, { value: ethers.parseEther('1') }).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).ethPayment(...params, {
+            value: ethers.parseEther('1')
+        }).should.be.rejected;
     });
 
-    it('should allow to send ERC20 payment', async function () {
+    it('should allow to send ERC20 payment', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const amount = ethers.parseEther('1');
 
@@ -129,7 +139,7 @@ describe("EtomicSwap", function() {
         await etomicSwap.connect(accounts[0]).erc20Payment(...params).should.be.rejected;
     });
 
-    it('should allow to send ERC721 payment', async function () {
+    it('should allow to send ERC721 payment', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const tokenId = 1; // Assuming token ID 1 is minted to accounts[0] in Erc721Token contract
 
@@ -140,12 +150,8 @@ describe("EtomicSwap", function() {
         );
         // Call safeTransferFrom directly to transfer the token to the EtomicSwap contract.
         // Explicitly specify the method signature.
-        await erc721token['safeTransferFrom(address,address,uint256,bytes)'](
-            accounts[0].address,
-            etomicSwap.target,
-            tokenId,
-            data
-        );
+        await erc721token['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data);
+
         // Check the payment lockTime and state
         const payment = await etomicSwap.payments(id);
         expect(payment.lockTime).to.equal(BigInt(lockTime));
@@ -156,15 +162,10 @@ describe("EtomicSwap", function() {
         expect(tokenOwner).to.equal(etomicSwap.target);
 
         // Should not allow to send again
-        await erc721token['safeTransferFrom(address,address,uint256,bytes)'](
-            accounts[0].address,
-            etomicSwap.target,
-            tokenId,
-            data)
-            .should.be.rejected;
+        await erc721token['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.rejected;
     });
 
-    it('should allow to send ERC1155 payment', async function () {
+    it('should allow to send ERC1155 payment', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const tokenId = 1; // Token ID used in Erc1155Token contract
         const amountToSend = 2; // Amount of tokens to send
@@ -175,13 +176,7 @@ describe("EtomicSwap", function() {
             [id, accounts[1].address, erc1155token.target, secretHash, lockTime]
         );
         // Call safeTransferFrom directly to transfer the tokens to the EtomicSwap contract
-        await erc1155token.safeTransferFrom(
-            accounts[0].address,
-            etomicSwap.target,
-            tokenId,
-            amountToSend,
-            data
-        );
+        await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data);
 
         // Check the payment lockTime and state
         const payment = await etomicSwap.payments(id);
@@ -193,13 +188,7 @@ describe("EtomicSwap", function() {
         expect(tokenBalance).to.equal(BigInt(amountToSend));
 
         // Check sending same params again - should fail
-        await erc1155token.safeTransferFrom(
-            accounts[0].address,
-            etomicSwap.target,
-            tokenId,
-            amountToSend,
-            data
-        ).should.be.rejected
+        await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.rejected
 
         // sender should be capable to send more tokens, if they have it
         const id1 = '0x' + crypto.randomBytes(32).toString('hex');
@@ -218,7 +207,7 @@ describe("EtomicSwap", function() {
         await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, 1, data2).should.be.rejected;
     });
 
-    it('should allow sender to refund ETH payment after locktime', async function () {
+    it('should allow sender to refund ETH payment after locktime', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
             id,
@@ -232,7 +221,9 @@ describe("EtomicSwap", function() {
             .should.be.rejected;
 
         // Make the ETH payment
-        await etomicSwap.connect(accounts[0]).ethPayment(...params, { value: ethers.parseEther('1') }).should.be.fulfilled;
+        await etomicSwap.connect(accounts[0]).ethPayment(...params, {
+            value: ethers.parseEther('1')
+        }).should.be.fulfilled;
 
         // Not allow to refund before locktime
         await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejected;
@@ -250,7 +241,9 @@ describe("EtomicSwap", function() {
         const balanceBefore = await ethers.provider.getBalance(accounts[0].address);
         const gasPrice = ethers.parseUnits('100', 'gwei');
 
-        const tx = await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address, { gasPrice }).should.be.fulfilled;
+        const tx = await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address, {
+            gasPrice
+        }).should.be.fulfilled;
 
         const receipt = await tx.wait();
         const gasUsed = ethers.parseUnits(receipt.gasUsed.toString(), 'wei');
@@ -268,7 +261,7 @@ describe("EtomicSwap", function() {
         await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejected;
     });
 
-    it('should allow sender to refund ERC20 payment after locktime', async function () {
+    it('should allow sender to refund ERC20 payment after locktime', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
             id,
@@ -316,7 +309,7 @@ describe("EtomicSwap", function() {
         await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, token.target, accounts[1].address).should.be.rejected;
     });
 
-    it('should allow sender to refund ERC721 payment after locktime', async function () {
+    it('should allow sender to refund ERC721 payment after locktime', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const tokenId = 1;
 
@@ -352,7 +345,7 @@ describe("EtomicSwap", function() {
         await etomicSwap.connect(accounts[0]).senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.rejected;
     });
 
-    it('should allow sender to refund ERC1155 payment after locktime', async function () {
+    it('should allow sender to refund ERC1155 payment after locktime', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const tokenId = 1; // Token ID used in Erc1155Token contract
         const amountToSend = 3; // Amount of tokens to send
@@ -389,7 +382,7 @@ describe("EtomicSwap", function() {
         await etomicSwap.connect(accounts[0]).senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1].address).should.be.rejected;
     });
 
-    it('should allow receiver to spend ETH payment by revealing a secret', async function () {
+    it('should allow receiver to spend ETH payment by revealing a secret', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
             id,
@@ -402,7 +395,9 @@ describe("EtomicSwap", function() {
         await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address).should.be.rejected;
 
         // Make the ETH payment
-        await etomicSwap.connect(accounts[0]).ethPayment(...params, { value: ethers.parseEther('1') }).should.be.fulfilled;
+        await etomicSwap.connect(accounts[0]).ethPayment(...params, {
+            value: ethers.parseEther('1')
+        }).should.be.fulfilled;
 
         // Should not allow to spend with invalid secret
         await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), invalidSecretHex, zeroAddr, accounts[0].address).should.be.rejected;
@@ -417,7 +412,9 @@ describe("EtomicSwap", function() {
 
         const gasPrice = ethers.parseUnits('100', 'gwei');
 
-        const tx = await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, { gasPrice }).should.be.fulfilled;
+        const tx = await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, {
+            gasPrice
+        }).should.be.fulfilled;
 
         const receipt = await tx.wait();
         const gasUsed = ethers.parseUnits(receipt.gasUsed.toString(), 'wei');
@@ -432,10 +429,12 @@ describe("EtomicSwap", function() {
         expect(payment.state).to.equal(BigInt(RECEIVER_SPENT));
 
         // Should not allow to spend again
-        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, { gasPrice }).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, {
+            gasPrice
+        }).should.be.rejected;
     });
 
-    it('should allow receiver to spend ERC20 payment by revealing a secret', async function () {
+    it('should allow receiver to spend ERC20 payment by revealing a secret', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
             id,
@@ -466,7 +465,9 @@ describe("EtomicSwap", function() {
 
         const gasPrice = ethers.parseUnits('100', 'gwei');
 
-        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, { gasPrice }).should.be.fulfilled;
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, {
+            gasPrice
+        }).should.be.fulfilled;
 
         const balanceAfter = await token.balanceOf(accounts[1].address);
         // Check receiver balance
@@ -477,10 +478,12 @@ describe("EtomicSwap", function() {
         expect(payment.state).to.equal(BigInt(RECEIVER_SPENT));
 
         // Should not allow to spend again
-        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, { gasPrice }).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, {
+            gasPrice
+        }).should.be.rejected;
     });
 
-    it('should allow receiver to spend ERC721 payment by revealing a secret', async function () {
+    it('should allow receiver to spend ERC721 payment by revealing a secret', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const tokenId = 1; // Assuming token ID 1 is minted to accounts[0]
 
@@ -518,7 +521,7 @@ describe("EtomicSwap", function() {
     });
 
 
-    it('should allow receiver to spend ERC1155 payment by revealing a secret', async function () {
+    it('should allow receiver to spend ERC1155 payment by revealing a secret', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const tokenId = 1; // Token ID used in Erc1155Token contract
         const amountToSend = 2; // Amount of tokens to send
@@ -560,7 +563,7 @@ describe("EtomicSwap", function() {
         await etomicSwap.connect(accounts[1]).receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejected;
     });
 
-    it('should allow receiver to spend ETH payment by revealing a secret even after locktime', async function () {
+    it('should allow receiver to spend ETH payment by revealing a secret even after locktime', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
             id,
@@ -570,7 +573,9 @@ describe("EtomicSwap", function() {
         ];
 
         // Make the ETH payment
-        await etomicSwap.connect(accounts[0]).ethPayment(...params, { value: ethers.parseEther('1') }).should.be.fulfilled;
+        await etomicSwap.connect(accounts[0]).ethPayment(...params, {
+            value: ethers.parseEther('1')
+        }).should.be.fulfilled;
 
         await advanceTimeAndMine(1000);
 
@@ -579,7 +584,9 @@ describe("EtomicSwap", function() {
 
         const gasPrice = ethers.parseUnits('100', 'gwei');
 
-        const tx = await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, { gasPrice }).should.be.fulfilled;
+        const tx = await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, {
+            gasPrice
+        }).should.be.fulfilled;
 
         const receipt = await tx.wait();
         const gasUsed = ethers.parseUnits(receipt.gasUsed.toString(), 'wei');
@@ -593,10 +600,12 @@ describe("EtomicSwap", function() {
         expect(payment.state).to.equal(BigInt(RECEIVER_SPENT));
 
         // Should not allow to spend again
-        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, { gasPrice }).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, {
+            gasPrice
+        }).should.be.rejected;
     });
 
-    it('should allow receiver to spend ERC20 payment by revealing a secret even after locktime', async function () {
+    it('should allow receiver to spend ERC20 payment by revealing a secret even after locktime', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
             id,
@@ -617,7 +626,9 @@ describe("EtomicSwap", function() {
         const balanceBefore = await token.balanceOf(accounts[1].address);
         const gasPrice = ethers.parseUnits('100', 'gwei');
 
-        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, { gasPrice }).should.be.fulfilled;
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, {
+            gasPrice
+        }).should.be.fulfilled;
 
         const balanceAfter = await token.balanceOf(accounts[1]);
         // Check receiver balance
@@ -628,10 +639,12 @@ describe("EtomicSwap", function() {
         expect(payment.state).to.equal(BigInt(RECEIVER_SPENT));
 
         // Should not allow to spend again
-        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, { gasPrice }).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, {
+            gasPrice
+        }).should.be.rejected;
     });
 
-    it('should allow receiver to spend ERC721 payment by revealing a secret even after locktime', async function () {
+    it('should allow receiver to spend ERC721 payment by revealing a secret even after locktime', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const tokenId = 1; // Assuming token ID 1 is minted to accounts[0]
 
@@ -660,7 +673,7 @@ describe("EtomicSwap", function() {
         await etomicSwap.connect(accounts[1]).receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejected;
     });
 
-    it('should allow receiver to spend ERC1155 payment by revealing a secret even after locktime', async function () {
+    it('should allow receiver to spend ERC1155 payment by revealing a secret even after locktime', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const tokenId = 1; // Token ID used in Erc1155Token contract
         const amountToSend = 2; // Amount of tokens to send
