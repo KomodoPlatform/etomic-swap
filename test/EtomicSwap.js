@@ -260,6 +260,7 @@ describe("EtomicSwap", function() {
         // Check sender balance
         expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('1'));
 
+        // Check the state of the payment
         const payment = await etomicSwap.payments(id);
         expect(payment.state).to.equal(BigInt(SENDER_REFUNDED));
 
@@ -269,7 +270,6 @@ describe("EtomicSwap", function() {
 
     it('should allow sender to refund ERC20 payment after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
-
         const params = [
             id,
             ethers.parseEther('1'),
@@ -308,6 +308,7 @@ describe("EtomicSwap", function() {
         // Check sender balance
         expect((balanceAfter - balanceBefore)).to.equal(ethers.parseEther('1'));
 
+        // Check the state of the payment
         const payment = await etomicSwap.payments(id);
         expect(payment.state).to.equal(BigInt(SENDER_REFUNDED));
 
@@ -413,6 +414,169 @@ describe("EtomicSwap", function() {
 
         // Success spend
         const balanceBefore = await ethers.provider.getBalance(accounts[1].address);
+
+        const gasPrice = ethers.parseUnits('100', 'gwei');
+
+        const tx = await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, { gasPrice }).should.be.fulfilled;
+
+        const receipt = await tx.wait();
+        const gasUsed = ethers.parseUnits(receipt.gasUsed.toString(), 'wei');
+        const txFee = gasPrice * gasUsed;
+
+        const balanceAfter = await ethers.provider.getBalance(accounts[1].address);
+        // Check receiver balance
+        expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('1'));
+
+        // Check the state of the payment
+        const payment = await etomicSwap.payments(id);
+        expect(payment.state).to.equal(BigInt(RECEIVER_SPENT));
+
+        // Should not allow to spend again
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, { gasPrice }).should.be.rejected;
+    });
+
+    it('should allow receiver to spend ERC20 payment by revealing a secret', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            ethers.parseEther('1'),
+            token.target,
+            accounts[1].address,
+            secretHash,
+            lockTime
+        ];
+
+        // Should not allow to spend uninitialized payment
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.address, accounts[0].address).should.be.rejected;
+
+        await token.approve(etomicSwap.target, ethers.parseEther('1'));
+        // Make the ERC20 payment
+        await etomicSwap.erc20Payment(...params).should.be.fulfilled;
+
+        // Should not allow to spend with invalid secret
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), invalidSecretHex, token.target, accounts[0].address).should.be.rejected;
+        // Should not allow to spend invalid amount
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('2'), secretHex, token.target, accounts[0].address).should.be.rejected;
+
+        // Should not allow to claim from non-receiver address even with valid secret
+        await etomicSwap.connect(accounts[0]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address).should.be.rejected;
+
+        // Success spend
+        const balanceBefore = await token.balanceOf(accounts[1]);
+
+        const gasPrice = ethers.parseUnits('100', 'gwei');
+
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, { gasPrice }).should.be.fulfilled;
+
+        const balanceAfter = await token.balanceOf(accounts[1].address);
+        // Check receiver balance
+        expect((balanceAfter - balanceBefore)).to.equal(ethers.parseEther('1'));
+
+        // Check the state of the payment
+        const payment = await etomicSwap.payments(id);
+        expect(payment.state).to.equal(BigInt(RECEIVER_SPENT));
+
+        // Should not allow to spend again
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, { gasPrice }).should.be.rejected;
+    });
+
+    it('should allow receiver to spend ERC721 payment by revealing a secret', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const tokenId = 1; // Assuming token ID 1 is minted to accounts[0]
+
+        const abiCoder = new AbiCoder();
+        const data = abiCoder.encode(
+            ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
+            [id, accounts[1].address, erc721token.target, secretHash, lockTime]
+        );
+        // Call safeTransferFrom directly to transfer the token to the EtomicSwap contract
+        await erc721token['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.fulfilled;
+
+        // Check the ownership of the token before receiver spend payment - should be owned by swap contract
+        const tokenOwnerBeforeReceiverSpend = await erc721token.ownerOf(tokenId);
+        expect(tokenOwnerBeforeReceiverSpend).to.equal(etomicSwap.target);
+
+        // Attempt to spend with invalid secret - should fail
+        await etomicSwap.connect(accounts[1]).receiverSpendErc721(id, invalidSecretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejected;
+
+        // Attempt to claim from non-receiver address even with valid secret - should fail
+        await etomicSwap.connect(accounts[0]).receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejected;
+
+        // Successful spend by receiver with valid secret
+        await etomicSwap.connect(accounts[1]).receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.fulfilled;
+
+        // Check the state of the payment
+        const payment = await etomicSwap.payments(id);
+        expect(payment.state).to.equal(BigInt(RECEIVER_SPENT));
+
+        // Check the ownership of the token - should be transferred to the receiver (accounts[1])
+        const tokenOwner = await erc721token.ownerOf(tokenId);
+        expect(tokenOwner).to.equal(accounts[1].address);
+
+        // Attempting to spend again - should fail
+        await etomicSwap.connect(accounts[1]).receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejected;
+    });
+
+
+    it('should allow receiver to spend ERC1155 payment by revealing a secret', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const tokenId = 1; // Token ID used in Erc1155Token contract
+        const amountToSend = 2; // Amount of tokens to send
+
+        const abiCoder = new AbiCoder();
+        const data = abiCoder.encode(
+            ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
+            [id, accounts[1].address, erc1155token.target, secretHash, lockTime]
+        );
+        // Call safeTransferFrom directly to transfer the tokens to the EtomicSwap contract
+        await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.fulfilled;
+
+        // Check the balance of the token before receiver spend payment - should be in swap contract
+        let tokenBalanceBeforeReceiverSpend = await erc1155token.balanceOf(etomicSwap.target, tokenId);
+        expect(tokenBalanceBeforeReceiverSpend).to.equal(BigInt(amountToSend));
+
+        // Attempt to spend with invalid secret - should fail
+        await etomicSwap.connect(accounts[1]).receiverSpendErc1155(id, amountToSend, invalidSecretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejected;
+
+        // Attempt to claim from non-receiver address even with valid secret - should fail
+        await etomicSwap.connect(accounts[0]).receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejected;
+
+        // Successful spend by receiver with valid secret
+        await etomicSwap.connect(accounts[1]).receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.fulfilled;
+
+        // Check the state of the payment
+        const payment = await etomicSwap.payments(id);
+        expect(payment.state).to.equal(BigInt(RECEIVER_SPENT));
+
+        // Check the balance of the token - should be transferred to the receiver (accounts[1])
+        let tokenBalance = await erc1155token.balanceOf(accounts[1].address, tokenId);
+        expect(tokenBalance).to.equal(BigInt(amountToSend));
+
+        // Check that the swap contract no longer holds the tokens
+        tokenBalance = await erc1155token.balanceOf(etomicSwap.target, tokenId);
+        expect(tokenBalance).to.equal(BigInt(0));
+
+        // Attempting to spend again - should fail
+        await etomicSwap.connect(accounts[1]).receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejected;
+    });
+
+    it('should allow receiver to spend ETH payment by revealing a secret even after locktime', async function () {
+        const lockTime = await currentEvmTime() + 1000;
+        const params = [
+            id,
+            accounts[1].address,
+            secretHash,
+            lockTime
+        ];
+
+        // Make the ETH payment
+        await etomicSwap.connect(accounts[0]).ethPayment(...params, { value: ethers.parseEther('1') }).should.be.fulfilled;
+
+        await advanceTimeAndMine(1000);
+
+        // Success spend
+        const balanceBefore = await ethers.provider.getBalance(accounts[1].address);
+
         const gasPrice = ethers.parseUnits('100', 'gwei');
 
         const tx = await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, { gasPrice }).should.be.fulfilled;
@@ -431,223 +595,69 @@ describe("EtomicSwap", function() {
         // Should not allow to spend again
         await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, { gasPrice }).should.be.rejected;
     });
-    /**
-    it('should allow receiver to spend ERC20 payment by revealing a secret', async function () {
-        const lockTime = await currentEvmTime() + 1000;
-        const params = [
-            id,
-            web3.utils.toWei('1'),
-            this.token.address,
-            accounts[1],
-            secretHash,
-            lockTime
-        ];
-
-        // should not allow to spend uninitialized payment
-        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
-
-        await this.token.approve(this.swap.address, web3.utils.toWei('1'));
-        await this.swap.erc20Payment(...params).should.be.fulfilled;
-
-        // should not allow to spend with invalid secret
-        await this.swap.receiverSpend(id, web3.utils.toWei('1'), invalidSecretHex, this.token.address, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
-        // should not allow to spend invalid amount
-        await this.swap.receiverSpend(id, web3.utils.toWei('2'), secretHex, this.token.address, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
-
-        // should not allow to claim from non-receiver address even with valid secret
-        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
-
-        // success spend
-        const balanceBefore = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
-
-        const gasPrice = web3.utils.toWei('100', 'gwei');
-        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1], gasPrice }).should.be.fulfilled;
-        const balanceAfter = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
-
-        // check receiver balance
-        assert.equal(balanceAfter.sub(balanceBefore).toString(), web3.utils.toWei('1'));
-
-        const payment = await this.swap.payments(id);
-
-        // status
-        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
-
-        // should not allow to spend again
-        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
-    });
-
-    it('should allow receiver to spend ERC721 payment by revealing a secret', async function () {
-        const lockTime = await currentEvmTime() + 1000;
-        const tokenId = 1; // Assuming token ID 1 is minted to accounts[0]
-
-        const data = web3.eth.abi.encodeParameters(
-            ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
-            [id, accounts[1], this.erc721token.address, secretHash, lockTime]
-        );
-        // Call safeTransferFrom directly to transfer the token to the EtomicSwap contract
-        await this.erc721token.safeTransferFrom(accounts[0], this.swap.address, tokenId, data).should.be.fulfilled;
-
-        // Check the ownership of the token before receiver spend payment - should be owned by swap contract
-        const tokenOwnerBeforeReceiverSpend = await this.erc721token.ownerOf(tokenId);
-        assert.equal(tokenOwnerBeforeReceiverSpend, this.swap.address);
-
-        // Attempt to spend with invalid secret - should fail
-        await this.swap.receiverSpendErc721(id, invalidSecretHex, this.erc721token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
-
-        // Attempt to claim from non-receiver address even with valid secret - should fail
-        await this.swap.receiverSpendErc721(id, secretHex, this.erc721token.address, tokenId, accounts[0], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
-
-        // Successful spend by receiver with valid secret
-        await this.swap.receiverSpendErc721(id, secretHex, this.erc721token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.fulfilled;
-
-        // Check the state of the payment
-        const payment = await this.swap.payments(id);
-        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
-
-        // Check the ownership of the token - should be transferred to the receiver (accounts[1])
-        const tokenOwner = await this.erc721token.ownerOf(tokenId);
-        assert.equal(tokenOwner, accounts[1]);
-
-        // Attempting to spend again - should fail
-        await this.swap.receiverSpendErc721(id, secretHex, this.erc721token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
-    });
-
-    it('should allow receiver to spend ERC1155 payment by revealing a secret', async function () {
-        const lockTime = await currentEvmTime() + 1000;
-        const tokenId = 1; // Token ID used in Erc1155Token contract
-        const amountToSend = 2; // Amount of tokens to send
-
-        const data = web3.eth.abi.encodeParameters(
-            ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
-            [id, accounts[1], this.erc1155token.address, secretHash, lockTime]
-        );
-        // Call safeTransferFrom directly to transfer the tokens to the EtomicSwap contract
-        await this.erc1155token.safeTransferFrom(accounts[0], this.swap.address, tokenId, amountToSend, data).should.be.fulfilled;
-
-        // Check the balance of the token before receiver spend payment - should be in swap contract
-        let tokenBalanceBeforeReceiverSpend = await this.erc1155token.balanceOf(this.swap.address, tokenId);
-        assert.equal(tokenBalanceBeforeReceiverSpend.toNumber(), amountToSend);
-
-        // Attempt to spend with invalid secret - should fail
-        await this.swap.receiverSpendErc1155(id, amountToSend, invalidSecretHex, this.erc1155token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
-
-        // Attempt to claim from non-receiver address even with valid secret - should fail
-        await this.swap.receiverSpendErc1155(id, amountToSend, secretHex, this.erc1155token.address, tokenId, accounts[0], { from: accounts[0] }).should.be.rejectedWith(EVMThrow);
-
-        // Successful spend by receiver with valid secret
-        await this.swap.receiverSpendErc1155(id, amountToSend, secretHex, this.erc1155token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.fulfilled;
-
-        // Check the state of the payment
-        const payment = await this.swap.payments(id);
-        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
-
-        // Check the balance of the token - should be transferred to the receiver (accounts[1])
-        let tokenBalance = await this.erc1155token.balanceOf(accounts[1], tokenId);
-        assert.equal(tokenBalance.toNumber(), amountToSend);
-
-        // Check that the swap contract no longer holds the tokens
-        tokenBalance = await this.erc1155token.balanceOf(this.swap.address, tokenId);
-        assert.equal(tokenBalance.toNumber(), 0);
-
-        // Attempting to spend again - should fail
-        await this.swap.receiverSpendErc1155(id, amountToSend, secretHex, this.erc1155token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
-    });
-
-    it('should allow receiver to spend ETH payment by revealing a secret even after locktime', async function () {
-        const lockTime = await currentEvmTime() + 1000;
-        const params = [
-            id,
-            accounts[1],
-            secretHash,
-            lockTime
-        ];
-
-        await this.swap.ethPayment(...params, { value: web3.utils.toWei('1') }).should.be.fulfilled;
-
-        await advanceTimeAndMine(1000);
-
-        // success spend
-        const balanceBefore = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
-        const gasPrice = web3.utils.toWei('100', 'gwei');
-
-        const tx = await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1], gasPrice }).should.be.fulfilled;
-        const txFee = web3.utils.toBN(gasPrice).mul(web3.utils.toBN(tx.receipt.gasUsed));
-
-        const balanceAfter = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
-
-        // check receiver balance
-        assert.equal(balanceAfter.sub(balanceBefore).add(txFee).toString(), web3.utils.toWei('1'));
-
-        const payment = await this.swap.payments(id);
-
-        // status
-        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
-
-        // should not allow to spend again
-        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, zeroAddr, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
-    });
 
     it('should allow receiver to spend ERC20 payment by revealing a secret even after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
             id,
-            web3.utils.toWei('1'),
-            this.token.address,
-            accounts[1],
+            ethers.parseEther('1'),
+            token.target,
+            accounts[1].address,
             secretHash,
             lockTime
         ];
 
-        await this.token.approve(this.swap.address, web3.utils.toWei('1'));
-        await this.swap.erc20Payment(...params).should.be.fulfilled;
+        await token.approve(etomicSwap.target, ethers.parseEther('1'));
+        // Make the ERC20 payment
+        await expect(etomicSwap.connect(accounts[0]).erc20Payment(...params)).to.be.fulfilled;
 
         await advanceTimeAndMine(1000);
 
-        // success spend
-        const balanceBefore = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
+        // Success spend
+        const balanceBefore = await token.balanceOf(accounts[1].address);
+        const gasPrice = ethers.parseUnits('100', 'gwei');
 
-        const gasPrice = web3.utils.toWei('100', 'gwei');
-        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1], gasPrice }).should.be.fulfilled;
-        const balanceAfter = web3.utils.toBN(await this.token.balanceOf(accounts[1]));
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, { gasPrice }).should.be.fulfilled;
 
-        // check receiver balance
-        assert.equal(balanceAfter.sub(balanceBefore).toString(), web3.utils.toWei('1'));
+        const balanceAfter = await token.balanceOf(accounts[1]);
+        // Check receiver balance
+        expect((balanceAfter - balanceBefore)).to.equal(ethers.parseEther('1'));
 
-        const payment = await this.swap.payments(id);
+        // Check the state of the payment
+        const payment = await etomicSwap.payments(id);
+        expect(payment.state).to.equal(BigInt(RECEIVER_SPENT));
 
-        // status
-        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
-
-        // should not allow to spend again
-        await this.swap.receiverSpend(id, web3.utils.toWei('1'), secretHex, this.token.address, accounts[0], { from: accounts[1], gasPrice }).should.be.rejectedWith(EVMThrow);
+        // Should not allow to spend again
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, { gasPrice }).should.be.rejected;
     });
 
     it('should allow receiver to spend ERC721 payment by revealing a secret even after locktime', async function () {
         const lockTime = await currentEvmTime() + 1000;
         const tokenId = 1; // Assuming token ID 1 is minted to accounts[0]
 
-        const data = web3.eth.abi.encodeParameters(
+        const abiCoder = new AbiCoder();
+        const data = abiCoder.encode(
             ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
-            [id, accounts[1], this.erc721token.address, secretHash, lockTime]
+            [id, accounts[1].address, erc721token.target, secretHash, lockTime]
         );
         // Call safeTransferFrom directly to transfer the token to the EtomicSwap contract
-        await this.erc721token.safeTransferFrom(accounts[0], this.swap.address, tokenId, data).should.be.fulfilled;
+        await erc721token['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.fulfilled;
 
         await advanceTimeAndMine(1000);
 
         // Successful spend by receiver with valid secret even after locktime
-        await this.swap.receiverSpendErc721(id, secretHex, this.erc721token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.fulfilled;
+        await etomicSwap.connect(accounts[1]).receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.fulfilled;
 
         // Check the state of the payment
-        const payment = await this.swap.payments(id);
-        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
+        const payment = await etomicSwap.payments(id);
+        expect(payment.state).to.equal(BigInt(RECEIVER_SPENT));
 
         // Check the ownership of the token - should be transferred to the receiver (accounts[1])
-        const tokenOwner = await this.erc721token.ownerOf(tokenId);
-        assert.equal(tokenOwner, accounts[1]);
+        const tokenOwner = await erc721token.ownerOf(tokenId);
+        expect(tokenOwner).to.equal(accounts[1].address);
 
         // Attempting to spend again - should fail
-        await this.swap.receiverSpendErc721(id, secretHex, this.erc721token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+        await etomicSwap.connect(accounts[1]).receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejected;
     });
 
     it('should allow receiver to spend ERC1155 payment by revealing a secret even after locktime', async function () {
@@ -655,32 +665,32 @@ describe("EtomicSwap", function() {
         const tokenId = 1; // Token ID used in Erc1155Token contract
         const amountToSend = 2; // Amount of tokens to send
 
-        const data = web3.eth.abi.encodeParameters(
+        const abiCoder = new AbiCoder();
+        const data = abiCoder.encode(
             ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
-            [id, accounts[1], this.erc1155token.address, secretHash, lockTime]
+            [id, accounts[1].address, erc1155token.target, secretHash, lockTime]
         );
         // Call safeTransferFrom directly to transfer the tokens to the EtomicSwap contract
-        await this.erc1155token.safeTransferFrom(accounts[0], this.swap.address, tokenId, amountToSend, data).should.be.fulfilled;
+        await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.fulfilled;
 
         await advanceTimeAndMine(1000);
 
         // Successful spend by receiver with valid secret even after locktime
-        await this.swap.receiverSpendErc1155(id, amountToSend, secretHex, this.erc1155token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.fulfilled;
+        await etomicSwap.connect(accounts[1]).receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.fulfilled;
 
         // Check the state of the payment
-        const payment = await this.swap.payments(id);
-        assert.equal(payment[2].valueOf(), RECEIVER_SPENT);
+        const payment = await etomicSwap.payments(id);
+        expect(payment.state).to.equal(BigInt(RECEIVER_SPENT));
 
         // Check the balance of the token - should be transferred to the receiver (accounts[1])
-        let tokenBalance = await this.erc1155token.balanceOf(accounts[1], tokenId);
-        assert.equal(tokenBalance.toNumber(), amountToSend);
+        let tokenBalance = await erc1155token.balanceOf(accounts[1].address, tokenId);
+        expect(tokenBalance).to.equal(BigInt(amountToSend));
 
         // Check that the swap contract no longer holds the tokens
-        tokenBalance = await this.erc1155token.balanceOf(this.swap.address, tokenId);
-        assert.equal(tokenBalance.toNumber(), 0);
+        tokenBalance = await erc1155token.balanceOf(etomicSwap.target, tokenId);
+        expect(tokenBalance).to.equal(BigInt(0));
 
         // Attempting to spend again - should fail
-        await this.swap.receiverSpendErc1155(id, amountToSend, secretHex, this.erc1155token.address, tokenId, accounts[0], { from: accounts[1] }).should.be.rejectedWith(EVMThrow);
+        await etomicSwap.connect(accounts[1]).receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejected;
     });
-        **/
 });
