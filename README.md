@@ -17,7 +17,6 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 ## Project structure
 
 1. `contracts` - Smart Contracts source code.
-1. `migrations` - Deployment scripts.
 1. `test` - Smart contracts unit tests.
 
 ## How to setup dev environment?
@@ -37,9 +36,9 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 
 ## Useful links for smart contracts development
 
-1. Truffle suite - https://github.com/trufflesuite/truffle
-1. Ganache (EthereumJS Testrpc) - https://github.com/trufflesuite/ganache
-1. OpenZeppelin Contracts - https://github.com/OpenZeppelin/openzeppelin-contracts
+1. **Hardhat:** An Ethereum development environment. It facilitates building, testing, and deploying smart contracts. - https://hardhat.org
+1. **Ethers.js:** A complete Ethereum library and wallet implementation in JavaScript. - https://github.com/ethers-io/ethers.js
+1. **OpenZeppelin Contracts:** A library for secure smart contract development. It provides reusable contracts which are secure and tested. - https://github.com/OpenZeppelin/openzeppelin-contracts
 
 ## Contribution Guide
 
@@ -54,5 +53,5 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 Using Remix Online IDE is sufficient. There's no need to install anything locally.
 
 ### Notes for JetBrains or Visual Studio Code (VSCode) Users:
-- These IDEs offer Solidity plugins, which can simplify your workflow. However, Remix Online IDE is also a viable option.
+- These IDEs offer Solidity and HardHat plugins, which can simplify your workflow. However, Remix Online IDE is also a viable option.
 - To index JavaScript code, execute the Docker commands as mentioned. Necessary dependencies will be downloaded, enabling the IDE to index the rest of the code.

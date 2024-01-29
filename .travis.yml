@@ -10,5 +10,5 @@ before_install:
 
 script:
   - docker-compose exec workspace yarn
-  - docker-compose exec workspace truffle test
+  - docker-compose exec workspace npx hardhat test
   - docker-compose down
