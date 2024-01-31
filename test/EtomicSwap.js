@@ -14,6 +14,9 @@ require('chai')
     .use(require('chai-as-promised'))
     .should();
 
+const REVERT_WITHOUT_REASON = 'Transaction reverted without a reason';
+const UNSUPPORTED_VALUE = 'unsupported addressable value (argument="target", value=null, code=INVALID_ARGUMENT, version=6.10.0)';
+
 /**
  * Advances the Ethereum Virtual Machine (EVM) time by a specified amount and then mines a new block.
  *
@@ -105,7 +108,7 @@ describe("EtomicSwap", function() {
         // Check that it should not allow to send again
         await etomicSwap.connect(accounts[0]).ethPayment(...params, {
             value: ethers.parseEther('1')
-        }).should.be.rejected;
+        }).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 
     it('should allow to send ERC20 payment', async function() {
@@ -136,7 +139,7 @@ describe("EtomicSwap", function() {
         expect(payment[2]).to.equal(BigInt(PAYMENT_SENT));
 
         // Should not allow to deposit again
-        await etomicSwap.connect(accounts[0]).erc20Payment(...params).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).erc20Payment(...params).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 
     it('should allow to send ERC721 payment', async function() {
@@ -161,7 +164,7 @@ describe("EtomicSwap", function() {
         const tokenOwner = await erc721token.ownerOf(tokenId);
         expect(tokenOwner).to.equal(etomicSwap.target);
 
-        // Should not allow to send again
+        // Should not allow to send again ( reverted with custom error ERC721InsufficientApproval )
         await erc721token.connect(accounts[0])['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.rejected;
     });
 
@@ -187,8 +190,8 @@ describe("EtomicSwap", function() {
         const tokenBalance = await erc1155token.balanceOf(etomicSwap.target, tokenId);
         expect(tokenBalance).to.equal(BigInt(amountToSend));
 
-        // Check sending same params again - should fail
-        await erc1155token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.rejected
+        // Check sending same params again - should fail ( reverted with custom error ERC1155InsufficientBalance )
+        await erc1155token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.rejected;
 
         // sender should be capable to send more tokens, if they have it
         const id1 = '0x' + crypto.randomBytes(32).toString('hex');
@@ -198,7 +201,7 @@ describe("EtomicSwap", function() {
         );
         await erc1155token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, 1, data1).should.be.fulfilled;
 
-        // Check sending more tokens than the sender owns - should fail
+        // Check sending more tokens than the sender owns - should fail ( reverted with custom error ERC1155InsufficientBalance )
         const id2 = '0x' + crypto.randomBytes(32).toString('hex');
         const data2 = abiCoder.encode(
             ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
@@ -218,7 +221,7 @@ describe("EtomicSwap", function() {
 
         // Not allow to refund if payment was not sent
         await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address)
-            .should.be.rejected;
+            .should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Make the ETH payment
         await etomicSwap.connect(accounts[0]).ethPayment(...params, {
@@ -226,16 +229,16 @@ describe("EtomicSwap", function() {
         }).should.be.fulfilled;
 
         // Not allow to refund before locktime
-        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Simulate time passing to exceed the locktime
         await advanceTimeAndMine(1000);
 
         // Not allow to call refund from non-sender address
-        await etomicSwap.connect(accounts[1]).senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Not allow to refund invalid amount
-        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('2'), secretHash, zeroAddr, accounts[1].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('2'), secretHash, zeroAddr, accounts[1].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Success refund
         const balanceBefore = await ethers.provider.getBalance(accounts[0].address);
@@ -258,7 +261,7 @@ describe("EtomicSwap", function() {
         expect(payment.state).to.equal(BigInt(SENDER_REFUNDED));
 
         // Not allow to refund again
-        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 
     it('should allow sender to refund ERC20 payment after locktime', async function() {
@@ -277,19 +280,19 @@ describe("EtomicSwap", function() {
         await expect(etomicSwap.connect(accounts[0]).erc20Payment(...params)).to.be.fulfilled;
 
         // Not allow to refund if payment was not sent
-        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, token.target, accounts[1].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, token.target, accounts[1].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Not allow to refund before locktime
-        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, token.target, accounts[1].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, token.target, accounts[1].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         await advanceTimeAndMine(1000);
 
         // Not allow to call refund from non-sender address
         await etomicSwap.connect(accounts[1]).senderRefund(id, ethers.parseEther('1'), secretHash, token.target, accounts[1].address)
-            .should.be.rejected;
+            .should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Not allow to refund invalid amount
-        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('2'), secretHash, token.target, accounts[1].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('2'), secretHash, token.target, accounts[1].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Success refund
         const balanceBefore = await token.balanceOf(accounts[0].address);
@@ -306,7 +309,7 @@ describe("EtomicSwap", function() {
         expect(payment.state).to.equal(BigInt(SENDER_REFUNDED));
 
         // Do not allow to refund again
-        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, token.target, accounts[1].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).senderRefund(id, ethers.parseEther('1'), secretHash, token.target, accounts[1].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 
     it('should allow sender to refund ERC721 payment after locktime', async function() {
@@ -322,13 +325,13 @@ describe("EtomicSwap", function() {
         await erc721token.connect(accounts[0])['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.fulfilled;
 
         // Attempt refund before locktime - should fail
-        await etomicSwap.connect(accounts[0]).senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Advance time past locktime
         await advanceTimeAndMine(1000);
 
         // Attempt refund from non-sender address - should fail
-        await etomicSwap.connect(accounts[1]).senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Successful refund by sender after locktime
         await etomicSwap.connect(accounts[0]).senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.fulfilled;
@@ -342,7 +345,7 @@ describe("EtomicSwap", function() {
         expect(tokenOwner).to.equal(accounts[0].address);
 
         // Attempting refund again - should fail
-        await etomicSwap.connect(accounts[0]).senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 
     it('should allow sender to refund ERC1155 payment after locktime', async function() {
@@ -359,13 +362,13 @@ describe("EtomicSwap", function() {
         await erc1155token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.fulfilled;
 
         // Attempt refund before locktime - should fail
-        await etomicSwap.connect(accounts[0]).senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1]).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1]).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Advance time past locktime
         await advanceTimeAndMine(1000);
 
         // Attempt refund from non-sender address - should fail
-        await etomicSwap.connect(accounts[1]).senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Successful refund by sender after locktime
         await etomicSwap.connect(accounts[0]).senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1].address).should.be.fulfilled;
@@ -379,7 +382,7 @@ describe("EtomicSwap", function() {
         expect(tokenBalance).to.equal(BigInt(amountToSend));
 
         // Attempting refund again - should fail
-        await etomicSwap.connect(accounts[0]).senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 
     it('should allow receiver to spend ETH payment by revealing a secret', async function() {
@@ -392,7 +395,7 @@ describe("EtomicSwap", function() {
         ];
 
         // Should not allow to spend uninitialized payment
-        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Make the ETH payment
         await etomicSwap.connect(accounts[0]).ethPayment(...params, {
@@ -400,12 +403,12 @@ describe("EtomicSwap", function() {
         }).should.be.fulfilled;
 
         // Should not allow to spend with invalid secret
-        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), invalidSecretHex, zeroAddr, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), invalidSecretHex, zeroAddr, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
         // Should not allow to spend invalid amount
-        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('2'), secretHex, zeroAddr, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('2'), secretHex, zeroAddr, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Should not allow to claim from non-receiver address even with valid secret
-        await etomicSwap.connect(accounts[0]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Success spend
         const balanceBefore = await ethers.provider.getBalance(accounts[1].address);
@@ -431,7 +434,7 @@ describe("EtomicSwap", function() {
         // Should not allow to spend again
         await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, {
             gasPrice
-        }).should.be.rejected;
+        }).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 
     it('should allow receiver to spend ERC20 payment by revealing a secret', async function() {
@@ -446,19 +449,19 @@ describe("EtomicSwap", function() {
         ];
 
         // Should not allow to spend uninitialized payment
-        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.address, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.address, accounts[0].address).should.be.rejectedWith(UNSUPPORTED_VALUE);
 
         await token.approve(etomicSwap.target, ethers.parseEther('1'));
         // Make the ERC20 payment
         await etomicSwap.erc20Payment(...params).should.be.fulfilled;
 
         // Should not allow to spend with invalid secret
-        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), invalidSecretHex, token.target, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), invalidSecretHex, token.target, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
         // Should not allow to spend invalid amount
-        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('2'), secretHex, token.target, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('2'), secretHex, token.target, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Should not allow to claim from non-receiver address even with valid secret
-        await etomicSwap.connect(accounts[0]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Success spend
         const balanceBefore = await token.balanceOf(accounts[1]);
@@ -480,7 +483,7 @@ describe("EtomicSwap", function() {
         // Should not allow to spend again
         await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, {
             gasPrice
-        }).should.be.rejected;
+        }).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 
     it('should allow receiver to spend ERC721 payment by revealing a secret', async function() {
@@ -500,10 +503,10 @@ describe("EtomicSwap", function() {
         expect(tokenOwnerBeforeReceiverSpend).to.equal(etomicSwap.target);
 
         // Attempt to spend with invalid secret - should fail
-        await etomicSwap.connect(accounts[1]).receiverSpendErc721(id, invalidSecretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpendErc721(id, invalidSecretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Attempt to claim from non-receiver address even with valid secret - should fail
-        await etomicSwap.connect(accounts[0]).receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
 
         // Successful spend by receiver with valid secret
         await etomicSwap.connect(accounts[1]).receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.fulfilled;
@@ -517,7 +520,7 @@ describe("EtomicSwap", function() {
         expect(tokenOwner).to.equal(accounts[1].address);
 
         // Attempting to spend again - should fail
-        await etomicSwap.connect(accounts[1]).receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 
 
@@ -539,10 +542,20 @@ describe("EtomicSwap", function() {
         expect(tokenBalanceBeforeReceiverSpend).to.equal(BigInt(amountToSend));
 
         // Attempt to spend with invalid secret - should fail
-        await etomicSwap.connect(accounts[1]).receiverSpendErc1155(id, amountToSend, invalidSecretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpendErc1155(id, amountToSend, invalidSecretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
+
+        // try {
+        //     await etomicSwap.connect(accounts[1]).receiverSpendErc1155(
+        //         id, amountToSend, invalidSecretHex, erc1155token.target, tokenId, accounts[0].address
+        //     );
+        //     assert.fail("Transaction should have failed with a specific error");
+        // } catch (error) {
+        //     assert.include(error.message, "Transaction reverted without a reason", "The error message is not as expected");
+        // }
 
         // Attempt to claim from non-receiver address even with valid secret - should fail
-        await etomicSwap.connect(accounts[0]).receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[0]).receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
+
 
         // Successful spend by receiver with valid secret
         await etomicSwap.connect(accounts[1]).receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.fulfilled;
@@ -560,7 +573,7 @@ describe("EtomicSwap", function() {
         expect(tokenBalance).to.equal(BigInt(0));
 
         // Attempting to spend again - should fail
-        await etomicSwap.connect(accounts[1]).receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 
     it('should allow receiver to spend ETH payment by revealing a secret even after locktime', async function() {
@@ -602,7 +615,7 @@ describe("EtomicSwap", function() {
         // Should not allow to spend again
         await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, zeroAddr, accounts[0].address, {
             gasPrice
-        }).should.be.rejected;
+        }).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 
     it('should allow receiver to spend ERC20 payment by revealing a secret even after locktime', async function() {
@@ -641,7 +654,7 @@ describe("EtomicSwap", function() {
         // Should not allow to spend again
         await etomicSwap.connect(accounts[1]).receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address, {
             gasPrice
-        }).should.be.rejected;
+        }).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 
     it('should allow receiver to spend ERC721 payment by revealing a secret even after locktime', async function() {
@@ -670,7 +683,7 @@ describe("EtomicSwap", function() {
         expect(tokenOwner).to.equal(accounts[1].address);
 
         // Attempting to spend again - should fail
-        await etomicSwap.connect(accounts[1]).receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 
     it('should allow receiver to spend ERC1155 payment by revealing a secret even after locktime', async function() {
@@ -704,6 +717,6 @@ describe("EtomicSwap", function() {
         expect(tokenBalance).to.equal(BigInt(0));
 
         // Attempting to spend again - should fail
-        await etomicSwap.connect(accounts[1]).receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejected;
+        await etomicSwap.connect(accounts[1]).receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejectedWith(REVERT_WITHOUT_REASON);
     });
 });
