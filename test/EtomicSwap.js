@@ -150,7 +150,7 @@ describe("EtomicSwap", function() {
         );
         // Call safeTransferFrom directly to transfer the token to the EtomicSwap contract.
         // Explicitly specify the method signature.
-        await erc721token['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data);
+        await erc721token.connect(accounts[0])['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data);
 
         // Check the payment lockTime and state
         const payment = await etomicSwap.payments(id);
@@ -162,7 +162,7 @@ describe("EtomicSwap", function() {
         expect(tokenOwner).to.equal(etomicSwap.target);
 
         // Should not allow to send again
-        await erc721token['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.rejected;
+        await erc721token.connect(accounts[0])['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.rejected;
     });
 
     it('should allow to send ERC1155 payment', async function() {
@@ -176,7 +176,7 @@ describe("EtomicSwap", function() {
             [id, accounts[1].address, erc1155token.target, secretHash, lockTime]
         );
         // Call safeTransferFrom directly to transfer the tokens to the EtomicSwap contract
-        await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data);
+        await erc1155token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data);
 
         // Check the payment lockTime and state
         const payment = await etomicSwap.payments(id);
@@ -188,7 +188,7 @@ describe("EtomicSwap", function() {
         expect(tokenBalance).to.equal(BigInt(amountToSend));
 
         // Check sending same params again - should fail
-        await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.rejected
+        await erc1155token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.rejected
 
         // sender should be capable to send more tokens, if they have it
         const id1 = '0x' + crypto.randomBytes(32).toString('hex');
@@ -196,7 +196,7 @@ describe("EtomicSwap", function() {
             ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
             [id1, accounts[1].address, erc1155token.target, secretHash, lockTime]
         );
-        await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, 1, data1).should.be.fulfilled;
+        await erc1155token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, 1, data1).should.be.fulfilled;
 
         // Check sending more tokens than the sender owns - should fail
         const id2 = '0x' + crypto.randomBytes(32).toString('hex');
@@ -204,7 +204,7 @@ describe("EtomicSwap", function() {
             ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
             [id2, accounts[1].address, erc1155token.target, secretHash, lockTime]
         );
-        await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, 1, data2).should.be.rejected;
+        await erc1155token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, 1, data2).should.be.rejected;
     });
 
     it('should allow sender to refund ETH payment after locktime', async function() {
@@ -319,7 +319,7 @@ describe("EtomicSwap", function() {
             [id, accounts[1].address, erc721token.target, secretHash, lockTime]
         );
         // Call safeTransferFrom directly to transfer the token to the EtomicSwap contract
-        await erc721token['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.fulfilled;
+        await erc721token.connect(accounts[0])['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.fulfilled;
 
         // Attempt refund before locktime - should fail
         await etomicSwap.connect(accounts[0]).senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.rejected;
@@ -356,7 +356,7 @@ describe("EtomicSwap", function() {
             [id, accounts[1].address, erc1155token.target, secretHash, lockTime]
         );
         // Call safeTransferFrom directly to transfer the tokens to the EtomicSwap contract
-        await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.fulfilled;
+        await erc1155token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.fulfilled;
 
         // Attempt refund before locktime - should fail
         await etomicSwap.connect(accounts[0]).senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1]).should.be.rejected;
@@ -493,7 +493,7 @@ describe("EtomicSwap", function() {
             [id, accounts[1].address, erc721token.target, secretHash, lockTime]
         );
         // Call safeTransferFrom directly to transfer the token to the EtomicSwap contract
-        await erc721token['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.fulfilled;
+        await erc721token.connect(accounts[0])['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.fulfilled;
 
         // Check the ownership of the token before receiver spend payment - should be owned by swap contract
         const tokenOwnerBeforeReceiverSpend = await erc721token.ownerOf(tokenId);
@@ -532,7 +532,7 @@ describe("EtomicSwap", function() {
             [id, accounts[1].address, erc1155token.target, secretHash, lockTime]
         );
         // Call safeTransferFrom directly to transfer the tokens to the EtomicSwap contract
-        await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.fulfilled;
+        await erc1155token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.fulfilled;
 
         // Check the balance of the token before receiver spend payment - should be in swap contract
         let tokenBalanceBeforeReceiverSpend = await erc1155token.balanceOf(etomicSwap.target, tokenId);
@@ -654,7 +654,7 @@ describe("EtomicSwap", function() {
             [id, accounts[1].address, erc721token.target, secretHash, lockTime]
         );
         // Call safeTransferFrom directly to transfer the token to the EtomicSwap contract
-        await erc721token['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.fulfilled;
+        await erc721token.connect(accounts[0])['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.fulfilled;
 
         await advanceTimeAndMine(1000);
 
@@ -684,7 +684,7 @@ describe("EtomicSwap", function() {
             [id, accounts[1].address, erc1155token.target, secretHash, lockTime]
         );
         // Call safeTransferFrom directly to transfer the tokens to the EtomicSwap contract
-        await erc1155token.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.fulfilled;
+        await erc1155token.connect(accounts[0]).safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.fulfilled;
 
         await advanceTimeAndMine(1000);
 
