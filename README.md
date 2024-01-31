@@ -21,14 +21,17 @@ Despite example shows swap of ETH/ERC20 this approach will work also for ETH/ERC
 
 ## How to setup dev environment?
 
+**Note:** 
+This setup supports both Docker Compose V1 (using `docker-compose` commands) and Docker Compose V2 (using `docker compose` commands).
+Docker Compose V2 is preferable, as [from July 2023 Compose V1 stopped receiving updates](https://docs.docker.com/compose/).
+
 1. Install docker.
-1. `cp .env.empty .env`.
-1. Run `docker-compose build`.
-1. Start containers `docker-compose up -d`.
-1. Install project dependencies: `docker-compose exec workspace yarn`.
-1. To run tests: `docker-compose exec workspace hardhat test`.
-1. To clean artifacts and cache: `docker-compose exec workspace npx hardhat clean`.
-1. Stop containers `docker-compose down`.
+1. Run `docker compose build`.
+1. Start containers `docker compose up -d`.
+1. Install project dependencies: `docker compose exec workspace yarn`.
+1. To run tests: `docker compose exec workspace npx hardhat test`.
+1. To clean artifacts and cache: `docker compose exec workspace npx hardhat clean`.
+1. Stop containers `docker compose down`.
 
 ## Related links
 
