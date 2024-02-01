@@ -170,7 +170,7 @@ describe("EtomicSwap", function() {
         expect(tokenOwner).to.equal(etomicSwap.target);
 
         // Should not allow to send again ( reverted with custom error ERC721InsufficientApproval )
-        await erc721tokenRunner0['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data).should.be.rejected;
+        await expect(erc721tokenRunner0['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwap.target, tokenId, data)).to.be.rejectedWith("ERC721InsufficientApproval");
     });
 
     it('should allow to send ERC1155 payment', async function() {
@@ -198,8 +198,8 @@ describe("EtomicSwap", function() {
         const tokenBalance = await erc1155token.balanceOf(etomicSwap.target, tokenId);
         expect(tokenBalance).to.equal(BigInt(amountToSend));
 
-        // Check sending same params again - should fail ( reverted with custom error ERC1155InsufficientBalance )
-        await erc1155tokenRunner0.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data).should.be.rejected;
+        // Check sending same params again - should fail
+        await expect(erc1155tokenRunner0.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, amountToSend, data)).to.be.rejectedWith("ERC1155InsufficientBalance");
 
         // sender should be capable to send more tokens, if they have it
         const id1 = '0x' + crypto.randomBytes(32).toString('hex');
@@ -209,13 +209,13 @@ describe("EtomicSwap", function() {
         );
         await erc1155tokenRunner0.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, 1, data1).should.be.fulfilled;
 
-        // Check sending more tokens than the sender owns - should fail ( reverted with custom error ERC1155InsufficientBalance )
+        // Check sending more tokens than the sender owns - should fail
         const id2 = '0x' + crypto.randomBytes(32).toString('hex');
         const data2 = abiCoder.encode(
             ['bytes32', 'address', 'address', 'bytes20', 'uint64'],
             [id2, accounts[1].address, erc1155token.target, secretHash, lockTime]
         );
-        await erc1155tokenRunner0.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, 1, data2).should.be.rejected;
+        await expect(erc1155tokenRunner0.safeTransferFrom(accounts[0].address, etomicSwap.target, tokenId, 1, data2)).to.be.rejectedWith("ERC1155InsufficientBalance");
     });
 
     it('should allow sender to refund ETH payment after locktime', async function() {
