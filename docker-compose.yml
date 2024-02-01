@@ -1,12 +1,5 @@
 version: '2'
 services:
-  rpc:
-    build:
-      context: ./
-      dockerfile: rpc.Dockerfile
-    ports:
-      - 8545
-
   workspace:
     build:
       context: ./
