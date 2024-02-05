@@ -36,11 +36,11 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         bytes20 secretHash,
         uint64 lockTime
     ) external payable {
+        require(receiver != address(0), "Receiver cannot be the zero address");
+        require(msg.value > 0, "Payment amount must be greater than 0");
         require(
-            receiver != address(0) &&
-            msg.value > 0 &&
             payments[id].state == PaymentState.Uninitialized,
-            "ETH payment setup invalid or already initialized"
+            "ETH payment already initialized"
         );
 
         bytes20 paymentHash = ripemd160(
@@ -66,11 +66,11 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         bytes20 secretHash,
         uint64 lockTime
     ) external payable {
+        require(receiver != address(0), "Receiver cannot be the zero address");
+        require(amount > 0, "Payment amount must be greater than 0");
         require(
-            receiver != address(0) &&
-            amount > 0 &&
             payments[id].state == PaymentState.Uninitialized,
-            "Erc20 payment setup invalid or already initialized"
+            "ERC20 payment already initialized"
         );
 
         bytes20 paymentHash = ripemd160(
@@ -145,12 +145,14 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         uint256 tokenId,
         address sender
     ) external {
-        // Checks
+        // Check if the payment state is PaymentSent
         require(
-            payments[id].state == PaymentState.PaymentSent &&
-            msg.sender == tx.origin,
-            "Invalid payment state or not initiated by an EOA"
+            payments[id].state == PaymentState.PaymentSent,
+            "Invalid payment state. Must be PaymentSent"
         );
+        // Check if the function caller is an externally owned account (EOA)
+        require(msg.sender == tx.origin, "Caller must be an EOA");
+
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 msg.sender,
@@ -181,12 +183,14 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         uint256 tokenId,
         address sender
     ) external {
-        // Checks
+        // Check if the payment state is PaymentSent
         require(
-            payments[id].state == PaymentState.PaymentSent &&
-            msg.sender == tx.origin,
-            "Invalid payment state or not initiated by an EOA"
+            payments[id].state == PaymentState.PaymentSent,
+            "Invalid payment state. Must be PaymentSent"
         );
+        // Check if the function caller is an externally owned account (EOA)
+        require(msg.sender == tx.origin, "Caller must be an EOA");
+
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 msg.sender,
@@ -230,10 +234,10 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
                 amount
             )
         );
+        require(paymentHash == payments[id].paymentHash, "Invalid paymentHash");
         require(
-            paymentHash == payments[id].paymentHash &&
             block.timestamp >= payments[id].lockTime,
-            "Invalid paymentHash or current timestamp didn't exceed payment lock time"
+            "Current timestamp didn't exceed payment lock time"
         );
 
         payments[id].state = PaymentState.SenderRefunded;
@@ -268,10 +272,10 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
                 tokenId
             )
         );
+        require(paymentHash == payments[id].paymentHash, "Invalid paymentHash");
         require(
-            paymentHash == payments[id].paymentHash &&
             block.timestamp >= payments[id].lockTime,
-            "Invalid paymentHash or current timestamp didn't exceed payment lock time"
+            "Current timestamp didn't exceed payment lock time"
         );
 
         payments[id].state = PaymentState.SenderRefunded;
@@ -304,10 +308,10 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
                 amount
             )
         );
+        require(paymentHash == payments[id].paymentHash, "Invalid paymentHash");
         require(
-            paymentHash == payments[id].paymentHash &&
             block.timestamp >= payments[id].lockTime,
-            "Invalid paymentHash or current timestamp didn't exceed payment lock time"
+            "Current timestamp didn't exceed payment lock time"
         );
 
         payments[id].state = PaymentState.SenderRefunded;
@@ -334,16 +338,19 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
             uint64 lockTime
         ) = abi.decode(data, (bytes32, address, address, bytes20, uint64));
 
+        require(receiver != address(0), "Receiver must not be zero address");
+        require(tokenAddress != address(0), "Token must not be zero address");
         require(
-            receiver != address(0) &&
-            tokenAddress != address(0) &&
-            msg.sender == tokenAddress &&
-            operator == from &&
-            value > 0 &&
-            payments[id].state == PaymentState.Uninitialized &&
-            !isContract(receiver),
-            "Invalid onERC1155Received operation: Receiver and token address must be valid, sender must match token address, operator must be the sender, value must be positive, payment must be Uninitialized, receiver cannot be a contract"
+            msg.sender == tokenAddress,
+            "Token address does not match sender"
         );
+        require(operator == from, "Operator must be the sender");
+        require(value > 0, "Value must be greater than 0");
+        require(
+            payments[id].state == PaymentState.Uninitialized,
+            "ERC1155 payment must be Uninitialized"
+        );
+        require(!isContract(receiver), "Receiver cannot be a contract");
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
@@ -399,15 +406,18 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
             uint64 lockTime
         ) = abi.decode(data, (bytes32, address, address, bytes20, uint64));
 
+        require(receiver != address(0), "Receiver must not be zero address");
+        require(tokenAddress != address(0), "Token must not be zero address");
         require(
-            receiver != address(0) &&
-            tokenAddress != address(0) &&
-            msg.sender == tokenAddress &&
-            operator == from &&
-            payments[id].state == PaymentState.Uninitialized &&
-            !isContract(receiver),
-            "Invalid onERC721Received operation: Receiver and token address must be valid, sender must match token address, operator must be the sender, payment must be Uninitialized, receiver cannot be a contract"
+            msg.sender == tokenAddress,
+            "Token address does not match sender"
         );
+        require(operator == from, "Operator must be the sender");
+        require(
+            payments[id].state == PaymentState.Uninitialized,
+            "ERC721 payment must be Uninitialized"
+        );
+        require(!isContract(receiver), "Receiver cannot be a contract");
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(receiver, from, secretHash, tokenAddress, tokenId)

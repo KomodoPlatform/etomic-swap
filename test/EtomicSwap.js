@@ -16,8 +16,7 @@ require('chai')
 
 const INVALID_HASH = 'Invalid paymentHash';
 const INVALID_PAYMENT_STATE = 'Invalid payment state. Must be PaymentSent';
-const INVALID_HASH_OR_TIMESTAMP = 'Invalid paymentHash or current timestamp didn\'t exceed payment lock time';
-const INVALID_STATE_OR_INIT_BY_EOA = 'Invalid payment state or not initiated by an EOA';
+const INVALID_TIMESTAMP = 'Current timestamp didn\'t exceed payment lock time';
 const UNSUPPORTED_VALUE = 'unsupported addressable value (argument="target", value=null, code=INVALID_ARGUMENT, version=6.10.0)';
 
 /**
@@ -111,7 +110,7 @@ describe("EtomicSwap", function() {
         // Check that it should not allow to send again
         await etomicSwap.connect(accounts[0]).ethPayment(...params, {
             value: ethers.parseEther('1')
-        }).should.be.rejectedWith("ETH payment setup invalid or already initialized");
+        }).should.be.rejectedWith("ETH payment already initialized");
     });
 
     it('should allow to send ERC20 payment', async function() {
@@ -144,7 +143,7 @@ describe("EtomicSwap", function() {
         expect(payment[2]).to.equal(BigInt(PAYMENT_SENT));
 
         // Should not allow to deposit again
-        await etomicSwapRunner0.erc20Payment(...params).should.be.rejectedWith("Erc20 payment setup invalid or already initialized");
+        await etomicSwapRunner0.erc20Payment(...params).should.be.rejectedWith("ERC20 payment already initialized");
     });
 
     it('should allow to send ERC721 payment', async function() {
@@ -243,16 +242,16 @@ describe("EtomicSwap", function() {
         }).should.be.fulfilled;
 
         // Not allow to refund before locktime
-        await etomicSwapRunner0.senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejectedWith(INVALID_HASH_OR_TIMESTAMP);
+        await etomicSwapRunner0.senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejectedWith(INVALID_TIMESTAMP);
 
         // Simulate time passing to exceed the locktime
         await advanceTimeAndMine(1000);
 
         // Not allow to call refund from non-sender address
-        await etomicSwapRunner1.senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejectedWith(INVALID_HASH_OR_TIMESTAMP);
+        await etomicSwapRunner1.senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejectedWith(INVALID_HASH);
 
         // Not allow to refund invalid amount
-        await etomicSwapRunner0.senderRefund(id, ethers.parseEther('2'), secretHash, zeroAddr, accounts[1].address).should.be.rejectedWith(INVALID_HASH_OR_TIMESTAMP);
+        await etomicSwapRunner0.senderRefund(id, ethers.parseEther('2'), secretHash, zeroAddr, accounts[1].address).should.be.rejectedWith(INVALID_HASH);
 
         // Success refund
         const balanceBefore = await ethers.provider.getBalance(accounts[0].address);
@@ -297,16 +296,16 @@ describe("EtomicSwap", function() {
         await expect(etomicSwapRunner0.erc20Payment(...params)).to.be.fulfilled;
 
         // Not allow to refund before locktime
-        await etomicSwapRunner0.senderRefund(id, ethers.parseEther('1'), secretHash, token.target, accounts[1].address).should.be.rejectedWith(INVALID_HASH_OR_TIMESTAMP);
+        await etomicSwapRunner0.senderRefund(id, ethers.parseEther('1'), secretHash, token.target, accounts[1].address).should.be.rejectedWith(INVALID_TIMESTAMP);
 
         await advanceTimeAndMine(1000);
 
         // Not allow to call refund from non-sender address
         await etomicSwapRunner1.senderRefund(id, ethers.parseEther('1'), secretHash, token.target, accounts[1].address)
-            .should.be.rejectedWith(INVALID_HASH_OR_TIMESTAMP);
+            .should.be.rejectedWith(INVALID_HASH);
 
         // Not allow to refund invalid amount
-        await etomicSwapRunner0.senderRefund(id, ethers.parseEther('2'), secretHash, token.target, accounts[1].address).should.be.rejectedWith(INVALID_HASH_OR_TIMESTAMP);
+        await etomicSwapRunner0.senderRefund(id, ethers.parseEther('2'), secretHash, token.target, accounts[1].address).should.be.rejectedWith(INVALID_HASH);
 
         // Success refund
         const balanceBefore = await token.balanceOf(accounts[0].address);
@@ -342,13 +341,13 @@ describe("EtomicSwap", function() {
         let etomicSwapRunner1 = etomicSwap.connect(accounts[1]);
 
         // Attempt refund before locktime - should fail
-        await etomicSwapRunner0.senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.rejectedWith(INVALID_HASH_OR_TIMESTAMP);
+        await etomicSwapRunner0.senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.rejectedWith(INVALID_TIMESTAMP);
 
         // Advance time past locktime
         await advanceTimeAndMine(1000);
 
         // Attempt refund from non-sender address - should fail
-        await etomicSwapRunner1.senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.rejectedWith(INVALID_HASH_OR_TIMESTAMP);
+        await etomicSwapRunner1.senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.rejectedWith(INVALID_HASH);
 
         // Successful refund by sender after locktime
         await etomicSwapRunner0.senderRefundErc721(id, secretHash, erc721token.target, tokenId, accounts[1].address).should.be.fulfilled;
@@ -382,13 +381,13 @@ describe("EtomicSwap", function() {
         let etomicSwapRunner1 = etomicSwap.connect(accounts[1]);
 
         // Attempt refund before locktime - should fail
-        await etomicSwapRunner0.senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1]).should.be.rejectedWith(INVALID_HASH_OR_TIMESTAMP);
+        await etomicSwapRunner0.senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1]).should.be.rejectedWith(INVALID_TIMESTAMP);
 
         // Advance time past locktime
         await advanceTimeAndMine(1000);
 
         // Attempt refund from non-sender address - should fail
-        await etomicSwapRunner1.senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1].address).should.be.rejectedWith(INVALID_HASH_OR_TIMESTAMP);
+        await etomicSwapRunner1.senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1].address).should.be.rejectedWith(INVALID_HASH);
 
         // Successful refund by sender after locktime
         await etomicSwapRunner0.senderRefundErc1155(id, amountToSend, secretHash, erc1155token.target, tokenId, accounts[1].address).should.be.fulfilled;
@@ -551,7 +550,7 @@ describe("EtomicSwap", function() {
         expect(tokenOwner).to.equal(accounts[1].address);
 
         // Attempting to spend again - should fail
-        await etomicSwapRunner1.receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejectedWith(INVALID_STATE_OR_INIT_BY_EOA);
+        await etomicSwapRunner1.receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejectedWith(INVALID_PAYMENT_STATE);
     });
 
 
@@ -597,7 +596,7 @@ describe("EtomicSwap", function() {
         expect(tokenBalance).to.equal(BigInt(0));
 
         // Attempting to spend again - should fail
-        await etomicSwapRunner1.receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejectedWith(INVALID_STATE_OR_INIT_BY_EOA);
+        await etomicSwapRunner1.receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejectedWith(INVALID_PAYMENT_STATE);
     });
 
     it('should allow receiver to spend ETH payment by revealing a secret even after locktime', async function() {
@@ -715,7 +714,7 @@ describe("EtomicSwap", function() {
         expect(tokenOwner).to.equal(accounts[1].address);
 
         // Attempting to spend again - should fail
-        await etomicSwapRunner1.receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejectedWith(INVALID_STATE_OR_INIT_BY_EOA);
+        await etomicSwapRunner1.receiverSpendErc721(id, secretHex, erc721token.target, tokenId, accounts[0].address).should.be.rejectedWith(INVALID_PAYMENT_STATE);
     });
 
     it('should allow receiver to spend ERC1155 payment by revealing a secret even after locktime', async function() {
@@ -751,6 +750,6 @@ describe("EtomicSwap", function() {
         expect(tokenBalance).to.equal(BigInt(0));
 
         // Attempting to spend again - should fail
-        await etomicSwapRunner1.receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejectedWith(INVALID_STATE_OR_INIT_BY_EOA);
+        await etomicSwapRunner1.receiverSpendErc1155(id, amountToSend, secretHex, erc1155token.target, tokenId, accounts[0].address).should.be.rejectedWith(INVALID_PAYMENT_STATE);
     });
 });
