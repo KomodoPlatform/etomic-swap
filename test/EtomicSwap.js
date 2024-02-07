@@ -146,17 +146,6 @@ describe("EtomicSwap", function() {
         await etomicSwap.connect(accounts[0]).ethTakerPaymentV2(...params, {
             value: ethers.parseEther('1')
         }).should.be.rejectedWith("ETH v2 payment is already initialized");
-
-        const update_params = [
-            id,
-            ethers.parseEther('0.9'),
-            ethers.parseEther('0.1'),
-            accounts[1].address,
-            secretHash,
-            secretHash,
-            zeroAddr
-        ];
-        await etomicSwap.connect(accounts[0]).updatePaymentState(...update_params).should.be.fulfilled;
     });
 
     it('should allow to spend ETH taker payment v2', async function() {
@@ -203,6 +192,58 @@ describe("EtomicSwap", function() {
         expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('0.9'));
 
         const dexFeeAddrBalance = await ethers.provider.getBalance(dexFeeAddr);
+        expect(dexFeeAddrBalance).to.equal(ethers.parseEther('0.1'));
+
+        const payment = await etomicSwap.payments_v2(id);
+
+        expect(Number(payment[3])).to.equal(RECEIVER_V2_SPENT);
+    });
+
+    it('should allow to spend ERC20 taker payment v2', async function() {
+        let current_time = await currentEvmTime();
+        const immediateRefundLockTime = current_time + 100;
+        const paymentLockTime = current_time + 100;
+        const payment_params = [
+            id,
+            ethers.parseEther('0.9'), // amount
+            ethers.parseEther('0.1'), // dexFee
+            token.target,
+            accounts[1].address, // receiver
+            secretHash,
+            secretHash,
+            immediateRefundLockTime,
+            paymentLockTime
+        ];
+
+        // Make the ERC20 payment
+        await token.approve(etomicSwap.target, ethers.parseEther('1'));
+        await etomicSwap.connect(accounts[0]).erc20TakerPaymentV2(...payment_params).should.be.fulfilled;
+
+        const contractBalance = await token.balanceOf(etomicSwap.target);
+        expect(contractBalance).to.equal(ethers.parseEther('1'));
+
+        const spend_params = [
+            id,
+            ethers.parseEther('0.9'), // amount
+            ethers.parseEther('0.1'), // dexFee
+            secret,
+            accounts[0].address, // sender
+            secretHash,
+            token.target, // tokenAddress
+        ];
+
+        const balanceBefore = await token.balanceOf(accounts[1].address);
+
+        const gasPrice = ethers.parseUnits('100', 'gwei');
+        await etomicSwap.connect(accounts[1]).spendTakerPaymentV2(...spend_params, {
+            gasPrice
+        }).should.be.fulfilled;
+
+        const balanceAfter = await token.balanceOf(accounts[1].address);
+        // Check receiver balance
+        expect((balanceAfter - balanceBefore)).to.equal(ethers.parseEther('0.9'));
+
+        const dexFeeAddrBalance = await token.balanceOf(dexFeeAddr);
         expect(dexFeeAddrBalance).to.equal(ethers.parseEther('0.1'));
 
         const payment = await etomicSwap.payments_v2(id);

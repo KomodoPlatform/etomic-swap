@@ -191,34 +191,9 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
                 token.transfer(msg.sender, amount), "ERC20 transfer failed: Contract may lack balance or token transfer was rejected"
             );
             require(
-                token.transfer(dexFeeAddress, amount), "ERC20 transfer failed: Contract may lack balance or token transfer was rejected"
+                token.transfer(dexFeeAddress, dexFee), "ERC20 transfer failed: Contract may lack balance or token transfer was rejected"
             );
         }
-    }
-
-    function updatePaymentState(
-        bytes32 id,
-        uint256 amount,
-        uint256 dexFee,
-        address receiver,
-        bytes20 takerSecretHash,
-        bytes20 makerSecretHash,
-        address tokenAddress
-    ) external {
-        bytes20 paymentHash = ripemd160(
-            abi.encodePacked(
-                amount,
-                dexFee,
-                receiver,
-                msg.sender,
-                takerSecretHash,
-                makerSecretHash,
-                tokenAddress
-            )
-        );
-        require(paymentHash == payments_v2[id].paymentHash, "Invalid paymentHash");
-
-        payments_v2[id].state = PaymentStateV2.SenderRefunded;
     }
 
     function erc20Payment(
