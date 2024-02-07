@@ -1,18 +1,9 @@
 version: '2'
 services:
-  rpc:
-    build:
-      context: ./
-      dockerfile: rpc.Dockerfile
-    ports:
-      - 8545
-
   workspace:
     build:
       context: ./
       dockerfile: workspace.Dockerfile
     tty: true
-    env_file:
-        - .env
     volumes:
       - ./:/usr/src/workspace
