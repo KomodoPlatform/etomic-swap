@@ -9,19 +9,9 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
-    address public dexFeeAddress;
-
     enum PaymentState {
         Uninitialized,
         PaymentSent,
-        ReceiverSpent,
-        SenderRefunded
-    }
-
-    enum PaymentStateV2 {
-        Uninitialized,
-        PaymentSent,
-        SenderApproved,
         ReceiverSpent,
         SenderRefunded
     }
@@ -34,27 +24,11 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
 
     mapping(bytes32 => Payment) public payments;
 
-    struct PaymentV2 {
-        bytes20 paymentHash;
-        uint32 immediateRefundTime;
-        uint32 paymentLockTime;
-        PaymentStateV2 state;
-    }
-
-    mapping(bytes32 => PaymentV2) public payments_v2;
-
     event PaymentSent(bytes32 id);
     event ReceiverSpent(bytes32 id, bytes32 secret);
     event SenderRefunded(bytes32 id);
 
-    event PaymentSentV2(bytes32 id);
-    event ReceiverSpentV2(bytes32 id, bytes32 secret);
-    event SenderRefundedV2Secret(bytes32 id, bytes32 secret);
-    event SenderRefundedV2Locktime(bytes32 id);
-
-    constructor(address feeAddress) {
-        dexFeeAddress = feeAddress;
-    }
+    constructor() {}
 
     function ethPayment(
         bytes32 id,
@@ -82,118 +56,6 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
         payments[id] = Payment(paymentHash, lockTime, PaymentState.PaymentSent);
 
         emit PaymentSent(id);
-    }
-
-    function ethTakerPaymentV2(
-        bytes32 id,
-        uint256 dexFee,
-        address receiver,
-        bytes20 takerSecretHash,
-        bytes20 makerSecretHash,
-        uint32 immediateRefundLockTime,
-        uint32 paymentLockTime
-    ) external payable {
-        require(payments_v2[id].state == PaymentStateV2.Uninitialized, "ETH v2 payment is already initialized");
-        require(receiver != address(0), "Receiver must not be zero address");
-        require(msg.value > 0, "ETH value must be greater than zero");
-        require(msg.value > dexFee, "ETH value must be greater than dex fee");
-
-        bytes20 paymentHash = ripemd160(
-            abi.encodePacked(
-                msg.value - dexFee,
-                dexFee,
-                receiver,
-                msg.sender,
-                takerSecretHash,
-                makerSecretHash,
-                address(0)
-            )
-        );
-
-        payments_v2[id] = PaymentV2(paymentHash, immediateRefundLockTime, paymentLockTime, PaymentStateV2.PaymentSent);
-
-        emit PaymentSentV2(id);
-    }
-
-    function erc20TakerPaymentV2(
-        bytes32 id,
-        uint256 amount,
-        uint256 dexFee,
-        address tokenAddress,
-        address receiver,
-        bytes20 takerSecretHash,
-        bytes20 makerSecretHash,
-        uint32 immediateRefundLockTime,
-        uint32 paymentLockTime
-    ) external {
-        require(payments_v2[id].state == PaymentStateV2.Uninitialized, "ERC20 v2 payment is already initialized");
-        require(amount > 0, "Amount must not be zero");
-        require(dexFee > 0, "Dex fee must not be zero");
-        require(receiver != address(0), "Receiver must not be zero address");
-
-        bytes20 paymentHash = ripemd160(
-            abi.encodePacked(
-                amount,
-                dexFee,
-                receiver,
-                msg.sender,
-                takerSecretHash,
-                makerSecretHash,
-                tokenAddress
-            )
-        );
-
-        payments_v2[id] = PaymentV2(paymentHash, immediateRefundLockTime, paymentLockTime, PaymentStateV2.PaymentSent);
-
-        emit PaymentSentV2(id);
-
-        // Now performing the external interaction
-        IERC20 token = IERC20(tokenAddress);
-        // Ensure that the token transfer from the sender to the contract is successful
-        require(
-            token.transferFrom(msg.sender, address(this), amount + dexFee),
-            "ERC20 transfer failed: Insufficient balance or allowance"
-        );
-    }
-
-    function spendTakerPaymentV2(
-        bytes32 id,
-        uint256 amount,
-        uint256 dexFee,
-        bytes32 makerSecret,
-        address sender,
-        bytes20 takerSecretHash,
-        address tokenAddress
-    ) external {
-        require(payments_v2[id].state == PaymentStateV2.PaymentSent, "Payment state is not PaymentSent");
-
-        bytes20 paymentHash = ripemd160(
-            abi.encodePacked(
-                amount,
-                dexFee,
-                msg.sender,
-                sender,
-                takerSecretHash,
-                ripemd160(abi.encodePacked(sha256(abi.encodePacked(makerSecret)))),
-                tokenAddress
-            )
-        );
-        require(paymentHash == payments_v2[id].paymentHash, "Invalid paymentHash");
-
-        payments_v2[id].state = PaymentStateV2.ReceiverSpent;
-
-        if (tokenAddress == address(0)) {
-            payable(msg.sender).transfer(amount);
-            payable(dexFeeAddress).transfer(dexFee);
-        } else {
-            IERC20 token = IERC20(tokenAddress);
-            require(
-                token.transfer(msg.sender, amount), "ERC20 transfer failed: Contract may lack balance or token transfer was rejected"
-            );
-            require(
-                token.transfer(dexFeeAddress, dexFee), "ERC20 transfer failed: Contract may lack balance or token transfer was rejected"
-            );
-        }
     }
 
     function erc20Payment(
@@ -458,55 +320,6 @@ contract EtomicSwap is ERC165, IERC1155Receiver, IERC721Receiver {
 
         IERC1155 token = IERC1155(tokenAddress);
         token.safeTransferFrom(address(this), msg.sender, tokenId, amount, "");
-    }
-
-    function refundTakerPaymentV2(
-        bytes32 id,
-        uint256 amount,
-        uint256 dexFee,
-        bytes20 takerSecretHash,
-        bytes20 makerSecretHash,
-        address tokenAddress,
-        address receiver
-    ) external {
-        require(
-            payments_v2[id].state == PaymentStateV2.PaymentSent,
-            "Invalid payment state. Must be PaymentSent"
-        );
-
-        bytes20 paymentHash = ripemd160(
-            abi.encodePacked(
-                amount,
-                dexFee,
-                receiver,
-                msg.sender,
-                takerSecretHash,
-                makerSecretHash,
-                tokenAddress
-            )
-        );
-
-        require(
-            paymentHash == payments_v2[id].paymentHash,
-            "Invalid paymentHash"
-        );
-
-        require(
-            block.timestamp >= payments_v2[id].paymentLockTime,
-            "Current timestamp didn't exceed payment refund lock time"
-        );
-
-        payments_v2[id].state = PaymentStateV2.SenderRefunded;
-
-        emit SenderRefundedV2Locktime(id);
-
-        uint256 total_amount = amount + dexFee;
-        if (tokenAddress == address(0)) {
-            payable(msg.sender).transfer(total_amount);
-        } else {
-            IERC20 token = IERC20(tokenAddress);
-            require(token.transfer(msg.sender, total_amount));
-        }
     }
 
     function onERC1155Received(

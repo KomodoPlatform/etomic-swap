@@ -43,7 +43,7 @@ async function currentEvmTime() {
 
 const id = '0x' + crypto.randomBytes(32).toString('hex');
 const [PAYMENT_UNINITIALIZED, PAYMENT_SENT, RECEIVER_SPENT, SENDER_REFUNDED] = [0, 1, 2, 3];
-const [PAYMENT_V2_UNINITIALIZED, PAYMENT_V2_SENT, PAYMENT_V2_APPROVED, RECEIVER_V2_SPENT, SENDER_V2_REFUNDED] = [0, 1, 2, 3, 4];
+const [TAKER_PAYMENT_UNINITIALIZED, TAKER_PAYMENT_SENT, TAKER_PAYMENT_APPROVED, MAKER_SPENT, TAKER_REFUNDED] = [0, 1, 2, 3, 4];
 
 const secret = crypto.randomBytes(32);
 const secretHash = '0x' + new RIPEMD160().update(crypto.createHash('sha256').update(secret).digest()).digest('hex');
@@ -53,7 +53,6 @@ const invalidSecret = crypto.randomBytes(32);
 const invalidSecretHex = '0x' + invalidSecret.toString('hex');
 
 const zeroAddr = '0x0000000000000000000000000000000000000000';
-const dexFeeAddr = '0x7777777777777777777777777777777777777777';
 
 describe("EtomicSwap", function() {
 
@@ -61,7 +60,7 @@ describe("EtomicSwap", function() {
         accounts = await ethers.getSigners();
 
         EtomicSwap = await ethers.getContractFactory("EtomicSwap");
-        etomicSwap = await EtomicSwap.deploy(dexFeeAddr);
+        etomicSwap = await EtomicSwap.deploy();
         etomicSwap.waitForDeployment();
 
         Token = await ethers.getContractFactory("Token");
@@ -82,9 +81,6 @@ describe("EtomicSwap", function() {
     it('should create contract with uninitialized payments', async function() {
         const payment = await etomicSwap.payments(id);
         expect(Number(payment[2])).to.equal(PAYMENT_UNINITIALIZED);
-
-        const payment_v2 = await etomicSwap.payments_v2(id);
-        expect(Number(payment_v2[0])).to.equal(PAYMENT_V2_UNINITIALIZED);
     });
 
     it('should have correct ERC1155 token balance', async function() {
@@ -118,139 +114,6 @@ describe("EtomicSwap", function() {
         }).should.be.rejectedWith("ETH payment already initialized");
     });
 
-    it('should allow to send ETH taker payment v2', async function() {
-        let current_time = await currentEvmTime();
-        const immediateRefundLockTime = current_time + 100;
-        const paymentLockTime = current_time + 100;
-        const params = [
-            id,
-            ethers.parseEther('0.1'),
-            accounts[1].address,
-            secretHash,
-            secretHash,
-            immediateRefundLockTime,
-            paymentLockTime
-        ];
-        // Make the ETH payment
-        await etomicSwap.connect(accounts[0]).ethTakerPaymentV2(...params, {
-            value: ethers.parseEther('1')
-        }).should.be.fulfilled;
-
-        const payment = await etomicSwap.payments_v2(id);
-
-        expect(Number(payment[1])).to.equal(immediateRefundLockTime);
-        expect(Number(payment[2])).to.equal(paymentLockTime);
-        expect(Number(payment[3])).to.equal(PAYMENT_V2_SENT);
-
-        // Check that it should not allow to send again
-        await etomicSwap.connect(accounts[0]).ethTakerPaymentV2(...params, {
-            value: ethers.parseEther('1')
-        }).should.be.rejectedWith("ETH v2 payment is already initialized");
-    });
-
-    it('should allow to spend ETH taker payment v2', async function() {
-        let current_time = await currentEvmTime();
-        const immediateRefundLockTime = current_time + 100;
-        const paymentLockTime = current_time + 100;
-        const payment_params = [
-            id,
-            ethers.parseEther('0.1'),
-            accounts[1].address,
-            secretHash,
-            secretHash,
-            immediateRefundLockTime,
-            paymentLockTime
-        ];
-        // Make the ETH payment
-        await etomicSwap.connect(accounts[0]).ethTakerPaymentV2(...payment_params, {
-            value: ethers.parseEther('1')
-        }).should.be.fulfilled;
-
-        const spend_params = [
-            id,
-            ethers.parseEther('0.9'),
-            ethers.parseEther('0.1'),
-            secret,
-            accounts[0].address,
-            secretHash,
-            zeroAddr,
-        ];
-
-        const balanceBefore = await ethers.provider.getBalance(accounts[1].address);
-        const gasPrice = ethers.parseUnits('100', 'gwei');
-
-        const spend_tx = await etomicSwap.connect(accounts[1]).spendTakerPaymentV2(...spend_params, {
-            gasPrice
-        }).should.be.fulfilled;
-
-        const spend_receipt = await spend_tx.wait();
-        const gasUsed = ethers.parseUnits(spend_receipt.gasUsed.toString(), 'wei');
-        const txFee = gasUsed * gasPrice;
-
-        const balanceAfter = await ethers.provider.getBalance(accounts[1].address);
-        // Check sender balance
-        expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('0.9'));
-
-        const dexFeeAddrBalance = await ethers.provider.getBalance(dexFeeAddr);
-        expect(dexFeeAddrBalance).to.equal(ethers.parseEther('0.1'));
-
-        const payment = await etomicSwap.payments_v2(id);
-
-        expect(Number(payment[3])).to.equal(RECEIVER_V2_SPENT);
-    });
-
-    it('should allow to spend ERC20 taker payment v2', async function() {
-        let current_time = await currentEvmTime();
-        const immediateRefundLockTime = current_time + 100;
-        const paymentLockTime = current_time + 100;
-        const payment_params = [
-            id,
-            ethers.parseEther('0.9'), // amount
-            ethers.parseEther('0.1'), // dexFee
-            token.target,
-            accounts[1].address, // receiver
-            secretHash,
-            secretHash,
-            immediateRefundLockTime,
-            paymentLockTime
-        ];
-
-        // Make the ERC20 payment
-        await token.approve(etomicSwap.target, ethers.parseEther('1'));
-        await etomicSwap.connect(accounts[0]).erc20TakerPaymentV2(...payment_params).should.be.fulfilled;
-
-        const contractBalance = await token.balanceOf(etomicSwap.target);
-        expect(contractBalance).to.equal(ethers.parseEther('1'));
-
-        const spend_params = [
-            id,
-            ethers.parseEther('0.9'), // amount
-            ethers.parseEther('0.1'), // dexFee
-            secret,
-            accounts[0].address, // sender
-            secretHash,
-            token.target, // tokenAddress
-        ];
-
-        const balanceBefore = await token.balanceOf(accounts[1].address);
-
-        const gasPrice = ethers.parseUnits('100', 'gwei');
-        await etomicSwap.connect(accounts[1]).spendTakerPaymentV2(...spend_params, {
-            gasPrice
-        }).should.be.fulfilled;
-
-        const balanceAfter = await token.balanceOf(accounts[1].address);
-        // Check receiver balance
-        expect((balanceAfter - balanceBefore)).to.equal(ethers.parseEther('0.9'));
-
-        const dexFeeAddrBalance = await token.balanceOf(dexFeeAddr);
-        expect(dexFeeAddrBalance).to.equal(ethers.parseEther('0.1'));
-
-        const payment = await etomicSwap.payments_v2(id);
-
-        expect(Number(payment[3])).to.equal(RECEIVER_V2_SPENT);
-    });
-
     it('should allow to send ERC20 payment', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const amount = ethers.parseEther('1');
@@ -282,45 +145,6 @@ describe("EtomicSwap", function() {
 
         // Should not allow to deposit again
         await etomicSwapRunner0.erc20Payment(...params).should.be.rejectedWith("ERC20 payment already initialized");
-    });
-
-    it('should allow to send ERC20 payment v2', async function() {
-        const current_time = await currentEvmTime();
-
-        const immediateRefundLockTime = current_time + 10;
-        const paymentLockTime = current_time + 100;
-
-        const payment_params = [
-            id,
-            ethers.parseEther('0.9'),
-            ethers.parseEther('0.1'),
-            token.target,
-            accounts[1].address,
-            secretHash,
-            secretHash,
-            immediateRefundLockTime,
-            paymentLockTime,
-        ];
-
-        let etomicSwapRunner0 = etomicSwap.connect(accounts[0]);
-
-        await token.approve(etomicSwap.target, ethers.parseEther('1'));
-        // Make the ERC20 payment
-        await etomicSwapRunner0.erc20TakerPaymentV2(...payment_params).should.be.fulfilled;
-
-        // Check contract token balance
-        const balance = await token.balanceOf(etomicSwap.target);
-        expect(balance).to.equal(ethers.parseEther('1'));
-
-        const payment = await etomicSwap.payments_v2(id);
-
-        // Check locktime and status
-        expect(payment[1]).to.equal(BigInt(immediateRefundLockTime));
-        expect(payment[2]).to.equal(BigInt(paymentLockTime));
-        expect(payment[3]).to.equal(BigInt(PAYMENT_V2_SENT));
-
-        // Should not allow to send payment again
-        await etomicSwapRunner0.erc20TakerPaymentV2(...payment_params).should.be.rejectedWith("ERC20 v2 payment is already initialized");
     });
 
     it('should allow to send ERC721 payment', async function() {
@@ -454,76 +278,6 @@ describe("EtomicSwap", function() {
         await etomicSwapRunner0.senderRefund(id, ethers.parseEther('1'), secretHash, zeroAddr, accounts[1].address).should.be.rejectedWith(INVALID_PAYMENT_STATE);
     });
 
-    it('should allow sender to refund ETH v2 payment after locktime', async function() {
-        const lockTime = (await ethers.provider.getBlock('latest')).timestamp + 1000;
-        const params = [
-            id,
-            ethers.parseEther('0.1'), // dexFee
-            accounts[1].address,
-            secretHash,
-            secretHash,
-            lockTime,
-            lockTime
-        ];
-
-        let etomicSwapRunner0 = etomicSwap.connect(accounts[0]);
-        let etomicSwapRunner1 = etomicSwap.connect(accounts[1]);
-
-        // Not allow to refund if payment was not sent
-        const refundParams = [
-            id,
-            ethers.parseEther('0.9'),
-            ethers.parseEther('0.1'),
-            secretHash,
-            secretHash,
-            zeroAddr,
-            accounts[1].address
-        ];
-
-        await etomicSwapRunner0.refundTakerPaymentV2(...refundParams)
-            .should.be.rejectedWith(INVALID_PAYMENT_STATE);
-
-        // Make the ETH payment
-        await etomicSwapRunner0.ethTakerPaymentV2(...params, {
-            value: ethers.parseEther('1')
-        }).should.be.fulfilled;
-
-        // Not allow to refund before locktime
-        await etomicSwapRunner0.refundTakerPaymentV2(...refundParams).should.be.rejectedWith(REFUND_TIMESTAMP_NOT_REACHED);
-
-        // Simulate time passing to exceed the locktime
-        await advanceTimeAndMine(1000);
-
-        // Not allow to call refund from non-sender address
-        await etomicSwapRunner1.refundTakerPaymentV2(id, ethers.parseEther('0.9'), ethers.parseEther('0.1'), secretHash, secretHash, zeroAddr, accounts[1].address).should.be.rejectedWith(INVALID_HASH);
-
-        // Not allow to refund invalid amount
-        await etomicSwapRunner0.refundTakerPaymentV2(id, ethers.parseEther('2'), ethers.parseEther('0.1'), secretHash, secretHash, zeroAddr, accounts[1].address).should.be.rejectedWith(INVALID_HASH);
-
-        // Success refund
-        const balanceBefore = await ethers.provider.getBalance(accounts[0].address);
-        const gasPrice = ethers.parseUnits('100', 'gwei');
-
-        const tx = await etomicSwapRunner0.refundTakerPaymentV2(...refundParams, {
-            gasPrice
-        }).should.be.fulfilled;
-
-        const receipt = await tx.wait();
-        const gasUsed = ethers.parseUnits(receipt.gasUsed.toString(), 'wei');
-        const txFee = gasUsed * gasPrice;
-
-        const balanceAfter = await ethers.provider.getBalance(accounts[0].address);
-        // Check sender balance
-        expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('1'));
-
-        // Check the state of the payment
-        const payment = await etomicSwap.payments_v2(id);
-        expect(payment.state).to.equal(BigInt(SENDER_V2_REFUNDED));
-
-        // Not allow to refund again
-        await etomicSwapRunner0.refundTakerPaymentV2(...refundParams).should.be.rejectedWith(INVALID_PAYMENT_STATE);
-    });
-
     it('should allow sender to refund ERC20 payment after locktime', async function() {
         const lockTime = await currentEvmTime() + 1000;
         const params = [
@@ -570,66 +324,6 @@ describe("EtomicSwap", function() {
 
         // Do not allow to refund again
         await etomicSwapRunner0.senderRefund(id, ethers.parseEther('1'), secretHash, token.target, accounts[1].address).should.be.rejectedWith(INVALID_PAYMENT_STATE);
-    });
-
-    it('should allow sender to refund ERC20 v2 payment after locktime', async function() {
-        const lockTime = await currentEvmTime() + 1000;
-        const params = [
-            id,
-            ethers.parseEther('0.9'),
-            ethers.parseEther('0.1'),
-            token.target,
-            accounts[1].address,
-            secretHash,
-            secretHash,
-            lockTime,
-            lockTime
-        ];
-
-        let etomicSwapRunner0 = etomicSwap.connect(accounts[0]);
-        let etomicSwapRunner1 = etomicSwap.connect(accounts[1]);
-
-        await token.approve(etomicSwap.target, ethers.parseEther('1'));
-        // Make the ERC20 payment
-        await expect(etomicSwapRunner0.erc20TakerPaymentV2(...params)).to.be.fulfilled;
-
-        const refundParams = [
-            id,
-            ethers.parseEther('0.9'),
-            ethers.parseEther('0.1'),
-            secretHash,
-            secretHash,
-            token.target,
-            accounts[1].address
-        ];
-
-        await etomicSwapRunner0.refundTakerPaymentV2(...refundParams).should.be.rejectedWith(REFUND_TIMESTAMP_NOT_REACHED);
-
-        await advanceTimeAndMine(1000);
-
-        // Not allow to call refund from non-sender address
-        await etomicSwapRunner1.refundTakerPaymentV2(id, ethers.parseEther('1'), ethers.parseEther('0.1'), secretHash, secretHash, token.target, accounts[1].address)
-            .should.be.rejectedWith(INVALID_HASH);
-
-        // Not allow to refund invalid amount
-        await etomicSwapRunner0.refundTakerPaymentV2(id, ethers.parseEther('2'), ethers.parseEther('0.1'), secretHash, secretHash, token.target, accounts[1].address).should.be.rejectedWith(INVALID_HASH);
-
-        // Success refund
-        const balanceBefore = await token.balanceOf(accounts[0].address);
-
-        await etomicSwapRunner0.refundTakerPaymentV2(...refundParams).should.be.fulfilled;
-
-        const balanceAfter = await token.balanceOf(accounts[0].address);
-
-        // Check sender balance
-        expect((balanceAfter - balanceBefore)).to.equal(ethers.parseEther('1'));
-
-        // Check the state of the payment
-        const payment = await etomicSwap.payments_v2(id);
-        expect(payment.state).to.equal(BigInt(SENDER_V2_REFUNDED));
-
-        // Do not allow to refund again
-        await etomicSwapRunner0.refundTakerPaymentV2(...refundParams).should.be.rejectedWith(INVALID_PAYMENT_STATE);
     });
 
     it('should allow sender to refund ERC721 payment after locktime', async function() {

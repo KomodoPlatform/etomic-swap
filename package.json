@@ -1,12 +1,10 @@
 {
   "name": "ETOMIC_SWAP",
   "version": "1.0.0",
-  "description": "Etomic swap smart contract and helpers",
+  "description": "Etomic swap smart contracts and helpers",
   "main": "index.js",
   "scripts": {
-    "test": "npx hardhat test",
-    "clean": "rm -rf merge",
-    "merge": "node node_modules/sol-merger/bin/sol-merger.js './contracts/*.sol' ./merge"
+    "test": "npx hardhat test"
   },
   "author": "ortgma@gmail.com",
   "license": "ISC",
