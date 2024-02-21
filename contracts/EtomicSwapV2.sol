@@ -40,6 +40,7 @@ contract EtomicSwapV2 {
     }
 
     event TakerPaymentSent(bytes32 id);
+    event TakerPaymentApproved(bytes32 id);
     event TakerPaymentSpent(bytes32 id, bytes32 secret);
     event TakerPaymentRefundedSecret(bytes32 id, bytes32 secret);
     event TakerPaymentRefundedTimelock(bytes32 id);
@@ -309,23 +310,59 @@ contract EtomicSwapV2 {
         );
     }
 
+    function takerPaymentApprove(
+        bytes32 id,
+        uint256 amount,
+        uint256 dexFee,
+        address maker,
+        bytes20 takerSecretHash,
+        bytes20 makerSecretHash,
+        address tokenAddress
+    ) external {
+        require(
+            taker_payments[id].state == TakerPaymentState.PaymentSent,
+            "Invalid payment state. Must be PaymentSent"
+        );
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                amount,
+                dexFee,
+                maker,
+                msg.sender,
+                takerSecretHash,
+                makerSecretHash,
+                tokenAddress
+            )
+        );
+
+        require(
+            paymentHash == taker_payments[id].paymentHash,
+            "Invalid paymentHash"
+        );
+
+        taker_payments[id].state = TakerPaymentState.TakerApproved;
+
+        emit TakerPaymentApproved(id);
+    }
+
     function spendTakerPayment(
         bytes32 id,
         uint256 amount,
         uint256 dexFee,
-        bytes32 makerSecret,
-        address sender,
+        address taker,
         bytes20 takerSecretHash,
+        bytes32 makerSecret,
         address tokenAddress
     ) external {
-        require(taker_payments[id].state == TakerPaymentState.PaymentSent, "Payment state is not PaymentSent");
+        require(taker_payments[id].state == TakerPaymentState.TakerApproved, "Invalid payment state. Must be TakerApproved");
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 amount,
                 dexFee,
                 msg.sender,
-                sender,
+                taker,
                 takerSecretHash,
                 ripemd160(abi.encodePacked(sha256(abi.encodePacked(makerSecret)))),
                 tokenAddress
@@ -349,25 +386,25 @@ contract EtomicSwapV2 {
         }
     }
 
-    function refundTakerPayment(
+    function refundTakerPaymentTimelock(
         bytes32 id,
         uint256 amount,
         uint256 dexFee,
+        address maker,
         bytes20 takerSecretHash,
         bytes20 makerSecretHash,
-        address tokenAddress,
-        address receiver
+        address tokenAddress
     ) external {
         require(
-            taker_payments[id].state == TakerPaymentState.PaymentSent,
-            "Invalid payment state. Must be PaymentSent"
+            taker_payments[id].state == TakerPaymentState.PaymentSent || taker_payments[id].state == TakerPaymentState.TakerApproved,
+            "Invalid payment state. Must be PaymentSent or TakerApproved"
         );
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 amount,
                 dexFee,
-                receiver,
+                maker,
                 msg.sender,
                 takerSecretHash,
                 makerSecretHash,
@@ -388,6 +425,50 @@ contract EtomicSwapV2 {
         taker_payments[id].state = TakerPaymentState.TakerRefunded;
 
         emit TakerPaymentRefundedTimelock(id);
+
+        uint256 total_amount = amount + dexFee;
+        if (tokenAddress == address(0)) {
+            payable(msg.sender).transfer(total_amount);
+        } else {
+            IERC20 token = IERC20(tokenAddress);
+            require(token.transfer(msg.sender, total_amount));
+        }
+    }
+
+    function refundTakerPaymentSecret(
+        bytes32 id,
+        uint256 amount,
+        uint256 dexFee,
+        address maker,
+        bytes32 takerSecret,
+        bytes20 makerSecretHash,
+        address tokenAddress
+    ) external {
+        require(
+            taker_payments[id].state == TakerPaymentState.PaymentSent,
+            "Invalid payment state. Must be PaymentSent"
+        );
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                amount,
+                dexFee,
+                maker,
+                msg.sender,
+                ripemd160(abi.encodePacked(sha256(abi.encodePacked(takerSecret)))),
+                makerSecretHash,
+                tokenAddress
+            )
+        );
+
+        require(
+            paymentHash == taker_payments[id].paymentHash,
+            "Invalid paymentHash"
+        );
+
+        taker_payments[id].state = TakerPaymentState.TakerRefunded;
+
+        emit TakerPaymentRefundedSecret(id, takerSecret);
 
         uint256 total_amount = amount + dexFee;
         if (tokenAddress == address(0)) {
