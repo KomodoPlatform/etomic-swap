@@ -69,10 +69,10 @@ describe("EtomicSwapV2", function() {
     });
 
     it('should create contract with uninitialized payments', async function() {
-        const taker_payment = await etomicSwapV2.taker_payments(id);
+        const taker_payment = await etomicSwapV2.takerPayments(id);
         expect(Number(taker_payment[3])).to.equal(TAKER_PAYMENT_UNINITIALIZED);
 
-        const maker_payment = await etomicSwapV2.maker_payments(id);
+        const maker_payment = await etomicSwapV2.makerPayments(id);
         expect(Number(maker_payment[2])).to.equal(MAKER_PAYMENT_UNINITIALIZED);
     });
 
@@ -91,7 +91,7 @@ describe("EtomicSwapV2", function() {
             value: ethers.parseEther('1')
         }).should.be.fulfilled;
 
-        const payment = await etomicSwapV2.maker_payments(id);
+        const payment = await etomicSwapV2.makerPayments(id);
 
         expect(Number(payment[1])).to.equal(paymentLockTime);
         expect(Number(payment[2])).to.equal(MAKER_PAYMENT_SENT);
@@ -127,7 +127,7 @@ describe("EtomicSwapV2", function() {
         const balance = await token.balanceOf(etomicSwapV2.target);
         expect(balance).to.equal(ethers.parseEther('1'));
 
-        const payment = await etomicSwapV2.maker_payments(id);
+        const payment = await etomicSwapV2.makerPayments(id);
 
         // Check locktime and status
         expect(payment[1]).to.equal(BigInt(paymentLockTime));
@@ -199,7 +199,7 @@ describe("EtomicSwapV2", function() {
         // Check sender balance
         expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('1'));
 
-        const payment = await etomicSwapV2.maker_payments(id);
+        const payment = await etomicSwapV2.makerPayments(id);
 
         expect(Number(payment[2])).to.equal(TAKER_SPENT);
 
@@ -270,7 +270,7 @@ describe("EtomicSwapV2", function() {
         // Check taker balance
         expect((balanceAfter - balanceBefore)).to.equal(ethers.parseEther('1'));
 
-        const payment = await etomicSwapV2.maker_payments(id);
+        const payment = await etomicSwapV2.makerPayments(id);
 
         expect(Number(payment[2])).to.equal(TAKER_SPENT);
 
@@ -346,7 +346,7 @@ describe("EtomicSwapV2", function() {
         expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('1'));
 
         // Check the state of the payment
-        const payment = await etomicSwapV2.maker_payments(id);
+        const payment = await etomicSwapV2.makerPayments(id);
         expect(payment.state).to.equal(BigInt(MAKER_REFUNDED));
 
         // Not allow to refund again
@@ -411,7 +411,7 @@ describe("EtomicSwapV2", function() {
         expect((balanceAfter - balanceBefore)).to.equal(ethers.parseEther('1'));
 
         // Check the state of the payment
-        const payment = await etomicSwapV2.maker_payments(id);
+        const payment = await etomicSwapV2.makerPayments(id);
         expect(payment.state).to.equal(BigInt(MAKER_REFUNDED));
 
         // Do not allow to refund again
@@ -480,7 +480,7 @@ describe("EtomicSwapV2", function() {
         expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('1'));
 
         // Check the state of the payment
-        const payment = await etomicSwapV2.maker_payments(id);
+        const payment = await etomicSwapV2.makerPayments(id);
         expect(payment.state).to.equal(BigInt(MAKER_REFUNDED));
 
         // Not allow to refund again
@@ -541,7 +541,7 @@ describe("EtomicSwapV2", function() {
         expect((balanceAfter - balanceBefore)).to.equal(ethers.parseEther('1'));
 
         // Check the state of the payment
-        const payment = await etomicSwapV2.maker_payments(id);
+        const payment = await etomicSwapV2.makerPayments(id);
         expect(payment.state).to.equal(BigInt(MAKER_REFUNDED));
 
         // Do not allow to refund again
@@ -566,7 +566,7 @@ describe("EtomicSwapV2", function() {
             value: ethers.parseEther('1')
         }).should.be.fulfilled;
 
-        const payment = await etomicSwapV2.taker_payments(id);
+        const payment = await etomicSwapV2.takerPayments(id);
 
         expect(Number(payment[1])).to.equal(immediateRefundLockTime);
         expect(Number(payment[2])).to.equal(paymentLockTime);
@@ -606,7 +606,7 @@ describe("EtomicSwapV2", function() {
         const balance = await token.balanceOf(etomicSwapV2.target);
         expect(balance).to.equal(ethers.parseEther('1'));
 
-        const payment = await etomicSwapV2.taker_payments(id);
+        const payment = await etomicSwapV2.takerPayments(id);
 
         // Check locktime and status
         expect(payment[1]).to.equal(BigInt(immediateRefundLockTime));
@@ -706,7 +706,7 @@ describe("EtomicSwapV2", function() {
         const dexFeeAddrBalance = await ethers.provider.getBalance(dexFeeAddr);
         expect(dexFeeAddrBalance).to.equal(ethers.parseEther('0.1'));
 
-        const payment = await etomicSwapV2.taker_payments(id);
+        const payment = await etomicSwapV2.takerPayments(id);
 
         expect(Number(payment[3])).to.equal(MAKER_SPENT);
 
@@ -804,7 +804,7 @@ describe("EtomicSwapV2", function() {
         const dexFeeAddrBalance = await token.balanceOf(dexFeeAddr);
         expect(dexFeeAddrBalance).to.equal(ethers.parseEther('0.1'));
 
-        const payment = await etomicSwapV2.taker_payments(id);
+        const payment = await etomicSwapV2.takerPayments(id);
 
         expect(Number(payment[3])).to.equal(MAKER_SPENT);
 
@@ -897,7 +897,7 @@ describe("EtomicSwapV2", function() {
         expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('1'));
 
         // Check the state of the payment
-        const payment = await etomicSwapV2.taker_payments(id);
+        const payment = await etomicSwapV2.takerPayments(id);
         expect(payment.state).to.equal(BigInt(TAKER_REFUNDED));
 
         // Not allow to refund again
@@ -978,7 +978,7 @@ describe("EtomicSwapV2", function() {
         expect((balanceAfter - balanceBefore)).to.equal(ethers.parseEther('1'));
 
         // Check the state of the payment
-        const payment = await etomicSwapV2.taker_payments(id);
+        const payment = await etomicSwapV2.takerPayments(id);
         expect(payment.state).to.equal(BigInt(TAKER_REFUNDED));
 
         // Do not allow to refund again
@@ -1063,7 +1063,7 @@ describe("EtomicSwapV2", function() {
         expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('1'));
 
         // Check the state of the payment
-        const payment = await etomicSwapV2.taker_payments(id);
+        const payment = await etomicSwapV2.takerPayments(id);
         expect(payment.state).to.equal(BigInt(TAKER_REFUNDED));
 
         // Not allow to refund again
@@ -1141,7 +1141,7 @@ describe("EtomicSwapV2", function() {
         expect((balanceAfter - balanceBefore)).to.equal(ethers.parseEther('1'));
 
         // Check the state of the payment
-        const payment = await etomicSwapV2.taker_payments(id);
+        const payment = await etomicSwapV2.takerPayments(id);
         expect(payment.state).to.equal(BigInt(TAKER_REFUNDED));
 
         // Do not allow to refund again

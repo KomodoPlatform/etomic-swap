@@ -22,7 +22,7 @@ contract EtomicSwapV2 {
     event MakerPaymentRefundedTimelock(bytes32 id);
     event MakerPaymentRefundedSecret(bytes32 id, bytes32 secret);
 
-    mapping(bytes32 => MakerPayment) public maker_payments;
+    mapping(bytes32 => MakerPayment) public makerPayments;
 
     enum TakerPaymentState {
         Uninitialized,
@@ -45,11 +45,13 @@ contract EtomicSwapV2 {
     event TakerPaymentRefundedSecret(bytes32 id, bytes32 secret);
     event TakerPaymentRefundedTimelock(bytes32 id);
 
-    mapping(bytes32 => TakerPayment) public taker_payments;
+    mapping(bytes32 => TakerPayment) public takerPayments;
 
-    address public dexFeeAddress;
+    address public immutable dexFeeAddress;
 
     constructor(address feeAddress) {
+        require(feeAddress != address(0), "feeAddress must not be zero address");
+
         dexFeeAddress = feeAddress;
     }
 
@@ -60,7 +62,7 @@ contract EtomicSwapV2 {
         bytes20 makerSecretHash,
         uint32 paymentLockTime
     ) external payable {
-        require(maker_payments[id].state == MakerPaymentState.Uninitialized, "Maker payment is already initialized");
+        require(makerPayments[id].state == MakerPaymentState.Uninitialized, "Maker payment is already initialized");
         require(taker != address(0), "Taker must not be zero address");
         require(msg.value > 0, "ETH value must be greater than zero");
 
@@ -75,7 +77,7 @@ contract EtomicSwapV2 {
             )
         );
 
-        maker_payments[id] = MakerPayment(paymentHash, paymentLockTime, MakerPaymentState.PaymentSent);
+        makerPayments[id] = MakerPayment(paymentHash, paymentLockTime, MakerPaymentState.PaymentSent);
 
         emit MakerPaymentSent(id);
     }
@@ -89,7 +91,7 @@ contract EtomicSwapV2 {
         bytes20 makerSecretHash,
         uint32 paymentLockTime
     ) external {
-        require(maker_payments[id].state == MakerPaymentState.Uninitialized, "Maker payment is already initialized");
+        require(makerPayments[id].state == MakerPaymentState.Uninitialized, "Maker payment is already initialized");
         require(amount > 0, "Amount must not be zero");
         require(taker != address(0), "Taker must not be zero address");
 
@@ -104,7 +106,7 @@ contract EtomicSwapV2 {
             )
         );
 
-        maker_payments[id] = MakerPayment(paymentHash, paymentLockTime, MakerPaymentState.PaymentSent);
+        makerPayments[id] = MakerPayment(paymentHash, paymentLockTime, MakerPaymentState.PaymentSent);
 
         emit MakerPaymentSent(id);
 
@@ -125,7 +127,7 @@ contract EtomicSwapV2 {
         bytes32 makerSecret,
         address tokenAddress
     ) external {
-        require(maker_payments[id].state == MakerPaymentState.PaymentSent, "Invalid payment state. Must be PaymentSent");
+        require(makerPayments[id].state == MakerPaymentState.PaymentSent, "Invalid payment state. Must be PaymentSent");
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
@@ -137,9 +139,9 @@ contract EtomicSwapV2 {
                 tokenAddress
             )
         );
-        require(paymentHash == maker_payments[id].paymentHash, "Invalid paymentHash");
+        require(paymentHash == makerPayments[id].paymentHash, "Invalid paymentHash");
 
-        maker_payments[id].state = MakerPaymentState.TakerSpent;
+        makerPayments[id].state = MakerPaymentState.TakerSpent;
 
         if (tokenAddress == address(0)) {
             payable(msg.sender).transfer(amount);
@@ -160,7 +162,7 @@ contract EtomicSwapV2 {
         address tokenAddress
     ) external {
         require(
-            maker_payments[id].state == MakerPaymentState.PaymentSent,
+            makerPayments[id].state == MakerPaymentState.PaymentSent,
             "Invalid payment state. Must be PaymentSent"
         );
 
@@ -176,16 +178,16 @@ contract EtomicSwapV2 {
         );
 
         require(
-            paymentHash == maker_payments[id].paymentHash,
+            paymentHash == makerPayments[id].paymentHash,
             "Invalid paymentHash"
         );
 
         require(
-            block.timestamp >= maker_payments[id].paymentLockTime,
+            block.timestamp >= makerPayments[id].paymentLockTime,
             "Current timestamp didn't exceed payment refund lock time"
         );
 
-        maker_payments[id].state = MakerPaymentState.MakerRefunded;
+        makerPayments[id].state = MakerPaymentState.MakerRefunded;
 
         emit MakerPaymentRefundedTimelock(id);
 
@@ -206,7 +208,7 @@ contract EtomicSwapV2 {
         address tokenAddress
     ) external {
         require(
-            maker_payments[id].state == MakerPaymentState.PaymentSent,
+            makerPayments[id].state == MakerPaymentState.PaymentSent,
             "Invalid payment state. Must be PaymentSent"
         );
 
@@ -222,11 +224,11 @@ contract EtomicSwapV2 {
         );
 
         require(
-            paymentHash == maker_payments[id].paymentHash,
+            paymentHash == makerPayments[id].paymentHash,
             "Invalid paymentHash"
         );
 
-        maker_payments[id].state = MakerPaymentState.MakerRefunded;
+        makerPayments[id].state = MakerPaymentState.MakerRefunded;
 
         emit MakerPaymentRefundedSecret(id, takerSecret);
 
@@ -247,7 +249,7 @@ contract EtomicSwapV2 {
         uint32 immediateRefundLockTime,
         uint32 paymentLockTime
     ) external payable {
-        require(taker_payments[id].state == TakerPaymentState.Uninitialized, "Taker payment is already initialized");
+        require(takerPayments[id].state == TakerPaymentState.Uninitialized, "Taker payment is already initialized");
         require(receiver != address(0), "Receiver must not be zero address");
         require(msg.value > 0, "ETH value must be greater than zero");
         require(msg.value > dexFee, "ETH value must be greater than dex fee");
@@ -264,7 +266,7 @@ contract EtomicSwapV2 {
             )
         );
 
-        taker_payments[id] = TakerPayment(paymentHash, immediateRefundLockTime, paymentLockTime, TakerPaymentState.PaymentSent);
+        takerPayments[id] = TakerPayment(paymentHash, immediateRefundLockTime, paymentLockTime, TakerPaymentState.PaymentSent);
 
         emit TakerPaymentSent(id);
     }
@@ -280,7 +282,7 @@ contract EtomicSwapV2 {
         uint32 immediateRefundLockTime,
         uint32 paymentLockTime
     ) external {
-        require(taker_payments[id].state == TakerPaymentState.Uninitialized, "ERC20 v2 payment is already initialized");
+        require(takerPayments[id].state == TakerPaymentState.Uninitialized, "ERC20 v2 payment is already initialized");
         require(amount > 0, "Amount must not be zero");
         require(dexFee > 0, "Dex fee must not be zero");
         require(receiver != address(0), "Receiver must not be zero address");
@@ -297,7 +299,7 @@ contract EtomicSwapV2 {
             )
         );
 
-        taker_payments[id] = TakerPayment(paymentHash, immediateRefundLockTime, paymentLockTime, TakerPaymentState.PaymentSent);
+        takerPayments[id] = TakerPayment(paymentHash, immediateRefundLockTime, paymentLockTime, TakerPaymentState.PaymentSent);
 
         emit TakerPaymentSent(id);
 
@@ -320,7 +322,7 @@ contract EtomicSwapV2 {
         address tokenAddress
     ) external {
         require(
-            taker_payments[id].state == TakerPaymentState.PaymentSent,
+            takerPayments[id].state == TakerPaymentState.PaymentSent,
             "Invalid payment state. Must be PaymentSent"
         );
 
@@ -337,11 +339,11 @@ contract EtomicSwapV2 {
         );
 
         require(
-            paymentHash == taker_payments[id].paymentHash,
+            paymentHash == takerPayments[id].paymentHash,
             "Invalid paymentHash"
         );
 
-        taker_payments[id].state = TakerPaymentState.TakerApproved;
+        takerPayments[id].state = TakerPaymentState.TakerApproved;
 
         emit TakerPaymentApproved(id);
     }
@@ -355,7 +357,7 @@ contract EtomicSwapV2 {
         bytes32 makerSecret,
         address tokenAddress
     ) external {
-        require(taker_payments[id].state == TakerPaymentState.TakerApproved, "Invalid payment state. Must be TakerApproved");
+        require(takerPayments[id].state == TakerPaymentState.TakerApproved, "Invalid payment state. Must be TakerApproved");
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
@@ -368,9 +370,9 @@ contract EtomicSwapV2 {
                 tokenAddress
             )
         );
-        require(paymentHash == taker_payments[id].paymentHash, "Invalid paymentHash");
+        require(paymentHash == takerPayments[id].paymentHash, "Invalid paymentHash");
 
-        taker_payments[id].state = TakerPaymentState.MakerSpent;
+        takerPayments[id].state = TakerPaymentState.MakerSpent;
 
         if (tokenAddress == address(0)) {
             payable(msg.sender).transfer(amount);
@@ -396,7 +398,7 @@ contract EtomicSwapV2 {
         address tokenAddress
     ) external {
         require(
-            taker_payments[id].state == TakerPaymentState.PaymentSent || taker_payments[id].state == TakerPaymentState.TakerApproved,
+            takerPayments[id].state == TakerPaymentState.PaymentSent || takerPayments[id].state == TakerPaymentState.TakerApproved,
             "Invalid payment state. Must be PaymentSent or TakerApproved"
         );
 
@@ -413,16 +415,16 @@ contract EtomicSwapV2 {
         );
 
         require(
-            paymentHash == taker_payments[id].paymentHash,
+            paymentHash == takerPayments[id].paymentHash,
             "Invalid paymentHash"
         );
 
         require(
-            block.timestamp >= taker_payments[id].paymentLockTime,
+            block.timestamp >= takerPayments[id].paymentLockTime,
             "Current timestamp didn't exceed payment refund lock time"
         );
 
-        taker_payments[id].state = TakerPaymentState.TakerRefunded;
+        takerPayments[id].state = TakerPaymentState.TakerRefunded;
 
         emit TakerPaymentRefundedTimelock(id);
 
@@ -445,7 +447,7 @@ contract EtomicSwapV2 {
         address tokenAddress
     ) external {
         require(
-            taker_payments[id].state == TakerPaymentState.PaymentSent,
+            takerPayments[id].state == TakerPaymentState.PaymentSent,
             "Invalid payment state. Must be PaymentSent"
         );
 
@@ -462,11 +464,11 @@ contract EtomicSwapV2 {
         );
 
         require(
-            paymentHash == taker_payments[id].paymentHash,
+            paymentHash == takerPayments[id].paymentHash,
             "Invalid paymentHash"
         );
 
-        taker_payments[id].state = TakerPaymentState.TakerRefunded;
+        takerPayments[id].state = TakerPaymentState.TakerRefunded;
 
         emit TakerPaymentRefundedSecret(id, takerSecret);
 
