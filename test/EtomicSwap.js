@@ -18,7 +18,6 @@ const INVALID_HASH = 'Invalid paymentHash';
 const INVALID_PAYMENT_STATE = 'Invalid payment state. Must be PaymentSent';
 const INVALID_TIMESTAMP = 'Current timestamp didn\'t exceed payment lock time';
 const UNSUPPORTED_VALUE = 'unsupported addressable value (argument="target", value=null, code=INVALID_ARGUMENT, version=6.10.0)';
-const REFUND_TIMESTAMP_NOT_REACHED = 'Current timestamp didn\'t exceed payment refund lock time';
 
 /**
  * Advances the Ethereum Virtual Machine (EVM) time by a specified amount and then mines a new block.
@@ -43,7 +42,6 @@ async function currentEvmTime() {
 
 const id = '0x' + crypto.randomBytes(32).toString('hex');
 const [PAYMENT_UNINITIALIZED, PAYMENT_SENT, RECEIVER_SPENT, SENDER_REFUNDED] = [0, 1, 2, 3];
-const [TAKER_PAYMENT_UNINITIALIZED, TAKER_PAYMENT_SENT, TAKER_PAYMENT_APPROVED, MAKER_SPENT, TAKER_REFUNDED] = [0, 1, 2, 3, 4];
 
 const secret = crypto.randomBytes(32);
 const secretHash = '0x' + new RIPEMD160().update(crypto.createHash('sha256').update(secret).digest()).digest('hex');
