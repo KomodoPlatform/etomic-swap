@@ -12,7 +12,7 @@ contract EtomicSwapV2 {
     }
 
     struct MakerPayment {
-        bytes20 paymentHash;
+        bytes32 paymentHash;
         uint32 paymentLockTime;
         MakerPaymentState state;
     }
@@ -95,7 +95,7 @@ contract EtomicSwapV2 {
         require(amount > 0, "Amount must not be zero");
         require(taker != address(0), "Taker must not be zero address");
 
-        bytes20 paymentHash = ripemd160(
+        bytes32 paymentHash = sha256(
             abi.encodePacked(
                 amount,
                 taker,

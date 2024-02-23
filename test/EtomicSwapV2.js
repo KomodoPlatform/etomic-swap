@@ -121,7 +121,9 @@ describe("EtomicSwapV2", function() {
 
         await token.approve(etomicSwapV2.target, ethers.parseEther('1'));
         // Make the ERC20 payment
-        await etomicSwapRunner0.erc20MakerPayment(...payment_params).should.be.fulfilled;
+        let payment_tx = await etomicSwapRunner0.erc20MakerPayment(...payment_params).should.be.fulfilled;
+        let payment_receipt = await payment_tx.wait();
+        console.log(payment_receipt);
 
         // Check contract token balance
         const balance = await token.balanceOf(etomicSwapV2.target);
