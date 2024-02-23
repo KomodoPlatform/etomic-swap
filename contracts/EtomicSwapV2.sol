@@ -12,7 +12,7 @@ contract EtomicSwapV2 {
     }
 
     struct MakerPayment {
-        bytes32 paymentHash;
+        bytes20 paymentHash;
         uint32 paymentLockTime;
         MakerPaymentState state;
     }
@@ -22,7 +22,7 @@ contract EtomicSwapV2 {
     event MakerPaymentRefundedTimelock(bytes32 id);
     event MakerPaymentRefundedSecret(bytes32 id, bytes32 secret);
 
-    mapping(bytes32 => MakerPayment) public makerPayments;
+    mapping(bytes20 => MakerPayment) public makerPayments;
 
     enum TakerPaymentState {
         Uninitialized,
@@ -56,7 +56,7 @@ contract EtomicSwapV2 {
     }
 
     function ethMakerPayment(
-        bytes32 id,
+        bytes20 id,
         address taker,
         bytes20 takerSecretHash,
         bytes20 makerSecretHash,
@@ -83,7 +83,7 @@ contract EtomicSwapV2 {
     }
 
     function erc20MakerPayment(
-        bytes32 id,
+        bytes20 id,
         uint256 amount,
         address tokenAddress,
         address taker,
@@ -95,7 +95,7 @@ contract EtomicSwapV2 {
         require(amount > 0, "Amount must not be zero");
         require(taker != address(0), "Taker must not be zero address");
 
-        bytes32 paymentHash = sha256(
+        bytes20 paymentHash = ripemd160(
             abi.encodePacked(
                 amount,
                 taker,
@@ -120,7 +120,7 @@ contract EtomicSwapV2 {
     }
 
     function spendMakerPayment(
-        bytes32 id,
+        bytes20 id,
         uint256 amount,
         address maker,
         bytes20 takerSecretHash,
@@ -154,7 +154,7 @@ contract EtomicSwapV2 {
     }
 
     function refundMakerPaymentTimelock(
-        bytes32 id,
+        bytes20 id,
         uint256 amount,
         address taker,
         bytes20 takerSecretHash,
@@ -200,7 +200,7 @@ contract EtomicSwapV2 {
     }
 
     function refundMakerPaymentSecret(
-        bytes32 id,
+        bytes20 id,
         uint256 amount,
         address taker,
         bytes32 takerSecret,

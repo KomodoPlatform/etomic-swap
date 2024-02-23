@@ -38,6 +38,7 @@ async function currentEvmTime() {
 }
 
 const id = '0x' + crypto.randomBytes(32).toString('hex');
+const id20 = '0x' + crypto.randomBytes(20).toString('hex');
 const [TAKER_PAYMENT_UNINITIALIZED, TAKER_PAYMENT_SENT, TAKER_PAYMENT_APPROVED, MAKER_SPENT, TAKER_REFUNDED] = [0, 1, 2, 3, 4];
 const [MAKER_PAYMENT_UNINITIALIZED, MAKER_PAYMENT_SENT, TAKER_SPENT, MAKER_REFUNDED] = [0, 1, 2, 3];
 
@@ -108,7 +109,7 @@ describe("EtomicSwapV2", function() {
         const paymentLockTime = currentTime + 100;
 
         const payment_params = [
-            id,
+            id20,
             ethers.parseEther('1'),
             token.target,
             accounts[1].address,
