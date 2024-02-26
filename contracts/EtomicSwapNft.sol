@@ -60,42 +60,6 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         dexFeeAddress = feeAddress;
     }
 
-    function spendErc721MakerPayment(
-        bytes32 id,
-        address maker,
-        bytes20 takerSecretHash,
-        bytes32 makerSecret,
-        address tokenAddress,
-        uint256 tokenId
-    ) external {
-        require(makerPayments[id].state == MakerPaymentState.PaymentSent, "Invalid payment state. Must be PaymentSent");
-
-        // Check if the function caller is an externally owned account (EOA)
-        require(msg.sender == tx.origin, "Caller must be an EOA");
-
-        bytes20 paymentHash = ripemd160(
-            abi.encodePacked(
-                msg.sender,
-                maker,
-                takerSecretHash,
-                ripemd160(abi.encodePacked(sha256(abi.encodePacked(makerSecret)))),
-                tokenAddress,
-                tokenId
-            )
-        );
-        require(paymentHash == makerPayments[id].paymentHash, "Invalid paymentHash");
-
-        // Effects
-        makerPayments[id].state = MakerPaymentState.TakerSpent;
-
-        // Event Emission
-        emit MakerPaymentSpent(id, makerSecret);
-
-        // Interactions
-        IERC721 token = IERC721(tokenAddress);
-        token.safeTransferFrom(address(this), msg.sender, tokenId);
-    }
-
     function spendErc1155MakerPayment(
         bytes32 id,
         uint256 amount,
@@ -134,14 +98,50 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         token.safeTransferFrom(address(this), msg.sender, tokenId, amount, "");
     }
 
-    // todo change to erc1155 and erc721
-    function refundMakerPaymentTimelock(
+    function spendErc721MakerPayment(
+        bytes32 id,
+        address maker,
+        bytes20 takerSecretHash,
+        bytes32 makerSecret,
+        address tokenAddress,
+        uint256 tokenId
+    ) external {
+        require(makerPayments[id].state == MakerPaymentState.PaymentSent, "Invalid payment state. Must be PaymentSent");
+
+        // Check if the function caller is an externally owned account (EOA)
+        require(msg.sender == tx.origin, "Caller must be an EOA");
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                msg.sender,
+                maker,
+                takerSecretHash,
+                ripemd160(abi.encodePacked(sha256(abi.encodePacked(makerSecret)))),
+                tokenAddress,
+                tokenId
+            )
+        );
+        require(paymentHash == makerPayments[id].paymentHash, "Invalid paymentHash");
+
+        // Effects
+        makerPayments[id].state = MakerPaymentState.TakerSpent;
+
+        // Event Emission
+        emit MakerPaymentSpent(id, makerSecret);
+
+        // Interactions
+        IERC721 token = IERC721(tokenAddress);
+        token.safeTransferFrom(address(this), msg.sender, tokenId);
+    }
+
+    function refundErc1155MakerPaymentTimelock(
         bytes32 id,
         uint256 amount,
         address taker,
         bytes20 takerSecretHash,
         bytes20 makerSecretHash,
-        address tokenAddress
+        address tokenAddress,
+        uint256 tokenId
     ) external {
         require(
             makerPayments[id].state == MakerPaymentState.PaymentSent,
@@ -150,12 +150,13 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
-                amount,
                 taker,
                 msg.sender,
                 takerSecretHash,
                 makerSecretHash,
-                tokenAddress
+                tokenAddress,
+                tokenId,
+                amount
             )
         );
 
@@ -173,21 +174,18 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
 
         emit MakerPaymentRefundedTimelock(id);
 
-        if (tokenAddress == address(0)) {
-            payable(msg.sender).transfer(amount);
-        } else {
-            IERC20 token = IERC20(tokenAddress);
-            require(token.transfer(msg.sender, amount));
-        }
+        // Interactions
+        IERC1155 token = IERC1155(tokenAddress);
+        token.safeTransferFrom(address(this), msg.sender, tokenId, amount, "");
     }
 
-    function refundMakerPaymentSecret(
+    function refundErc721MakerPaymentTimelock(
         bytes32 id,
-        uint256 amount,
         address taker,
-        bytes32 takerSecret,
+        bytes20 takerSecretHash,
         bytes20 makerSecretHash,
-        address tokenAddress
+        address tokenAddress,
+        uint256 tokenId
     ) external {
         require(
             makerPayments[id].state == MakerPaymentState.PaymentSent,
@@ -196,12 +194,56 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
-                amount,
+                taker,
+                msg.sender,
+                takerSecretHash,
+                makerSecretHash,
+                tokenAddress,
+                tokenId
+            )
+        );
+
+        require(
+            paymentHash == makerPayments[id].paymentHash,
+            "Invalid paymentHash"
+        );
+
+        require(
+            block.timestamp >= makerPayments[id].paymentLockTime,
+            "Current timestamp didn't exceed payment refund lock time"
+        );
+
+        makerPayments[id].state = MakerPaymentState.MakerRefunded;
+
+        emit MakerPaymentRefundedTimelock(id);
+
+        IERC721 token = IERC721(tokenAddress);
+        token.safeTransferFrom(address(this), msg.sender, tokenId);
+    }
+
+    function refundErc1155MakerPaymentSecret(
+        bytes32 id,
+        uint256 amount,
+        address taker,
+        bytes32 takerSecret,
+        bytes20 makerSecretHash,
+        address tokenAddress,
+        uint256 tokenId
+    ) external {
+        require(
+            makerPayments[id].state == MakerPaymentState.PaymentSent,
+            "Invalid payment state. Must be PaymentSent"
+        );
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
                 taker,
                 msg.sender,
                 ripemd160(abi.encodePacked(sha256(abi.encodePacked(takerSecret)))),
                 makerSecretHash,
-                tokenAddress
+                tokenAddress,
+                tokenId,
+                amount
             )
         );
 
@@ -214,12 +256,45 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
 
         emit MakerPaymentRefundedSecret(id, takerSecret);
 
-        if (tokenAddress == address(0)) {
-            payable(msg.sender).transfer(amount);
-        } else {
-            IERC20 token = IERC20(tokenAddress);
-            require(token.transfer(msg.sender, amount));
-        }
+        IERC1155 token = IERC1155(tokenAddress);
+        token.safeTransferFrom(address(this), msg.sender, tokenId, amount, "");
+    }
+
+    function refundErc721MakerPaymentSecret(
+        bytes32 id,
+        address taker,
+        bytes32 takerSecret,
+        bytes20 makerSecretHash,
+        address tokenAddress,
+        uint256 tokenId
+    ) external {
+        require(
+            makerPayments[id].state == MakerPaymentState.PaymentSent,
+            "Invalid payment state. Must be PaymentSent"
+        );
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                taker,
+                msg.sender,
+                ripemd160(abi.encodePacked(sha256(abi.encodePacked(takerSecret)))),
+                makerSecretHash,
+                tokenAddress,
+                tokenId
+            )
+        );
+
+        require(
+            paymentHash == makerPayments[id].paymentHash,
+            "Invalid paymentHash"
+        );
+
+        makerPayments[id].state = MakerPaymentState.MakerRefunded;
+
+        emit MakerPaymentRefundedSecret(id, takerSecret);
+
+        IERC721 token = IERC721(tokenAddress);
+        token.safeTransferFrom(address(this), msg.sender, tokenId);
     }
 
     function ethTakerPayment(
