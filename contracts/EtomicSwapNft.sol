@@ -60,104 +60,81 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         dexFeeAddress = feeAddress;
     }
 
-    function ethMakerPayment(
+    function spendErc721MakerPayment(
         bytes32 id,
-        address taker,
+        address maker,
         bytes20 takerSecretHash,
-        bytes20 makerSecretHash,
-        uint32 paymentLockTime
-    ) external payable {
-        require(makerPayments[id].state == MakerPaymentState.Uninitialized, "Maker payment is already initialized");
-        require(taker != address(0), "Taker must not be zero address");
-        require(msg.value > 0, "ETH value must be greater than zero");
-
-        bytes20 paymentHash = ripemd160(
-            abi.encodePacked(
-                msg.value,
-                taker,
-                msg.sender,
-                takerSecretHash,
-                makerSecretHash,
-                address(0)
-            )
-        );
-
-        makerPayments[id] = MakerPayment(paymentHash, paymentLockTime, MakerPaymentState.PaymentSent);
-
-        emit MakerPaymentSent(id);
-    }
-
-    function erc20MakerPayment(
-        bytes32 id,
-        uint256 amount,
+        bytes32 makerSecret,
         address tokenAddress,
-        address taker,
-        bytes20 takerSecretHash,
-        bytes20 makerSecretHash,
-        uint32 paymentLockTime
+        uint256 tokenId
     ) external {
-        require(makerPayments[id].state == MakerPaymentState.Uninitialized, "Maker payment is already initialized");
-        require(amount > 0, "Amount must not be zero");
-        require(taker != address(0), "Taker must not be zero address");
+        require(makerPayments[id].state == MakerPaymentState.PaymentSent, "Invalid payment state. Must be PaymentSent");
+
+        // Check if the function caller is an externally owned account (EOA)
+        require(msg.sender == tx.origin, "Caller must be an EOA");
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
-                amount,
-                taker,
                 msg.sender,
+                maker,
                 takerSecretHash,
-                makerSecretHash,
-                tokenAddress
+                ripemd160(abi.encodePacked(sha256(abi.encodePacked(makerSecret)))),
+                tokenAddress,
+                tokenId
             )
         );
+        require(paymentHash == makerPayments[id].paymentHash, "Invalid paymentHash");
 
-        makerPayments[id] = MakerPayment(paymentHash, paymentLockTime, MakerPaymentState.PaymentSent);
+        // Effects
+        makerPayments[id].state = MakerPaymentState.TakerSpent;
 
-        emit MakerPaymentSent(id);
+        // Event Emission
+        emit MakerPaymentSpent(id, makerSecret);
 
-        // Now performing the external interaction
-        IERC20 token = IERC20(tokenAddress);
-        // Ensure that the token transfer from the sender to the contract is successful
-        require(
-            token.transferFrom(msg.sender, address(this), amount),
-            "ERC20 transfer failed: Insufficient balance or allowance"
-        );
+        // Interactions
+        IERC721 token = IERC721(tokenAddress);
+        token.safeTransferFrom(address(this), msg.sender, tokenId);
     }
 
-    function spendMakerPayment(
+    function spendErc1155MakerPayment(
         bytes32 id,
         uint256 amount,
         address maker,
         bytes20 takerSecretHash,
         bytes32 makerSecret,
-        address tokenAddress
+        address tokenAddress,
+        uint256 tokenId
     ) external {
         require(makerPayments[id].state == MakerPaymentState.PaymentSent, "Invalid payment state. Must be PaymentSent");
 
+        // Check if the function caller is an externally owned account (EOA)
+        require(msg.sender == tx.origin, "Caller must be an EOA");
+
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
-                amount,
                 msg.sender,
                 maker,
                 takerSecretHash,
                 ripemd160(abi.encodePacked(sha256(abi.encodePacked(makerSecret)))),
-                tokenAddress
+                tokenAddress,
+                tokenId,
+                amount
             )
         );
         require(paymentHash == makerPayments[id].paymentHash, "Invalid paymentHash");
 
+        // Effects
         makerPayments[id].state = MakerPaymentState.TakerSpent;
 
-        if (tokenAddress == address(0)) {
-            payable(msg.sender).transfer(amount);
-        } else {
-            IERC20 token = IERC20(tokenAddress);
-            require(
-                token.transfer(msg.sender, amount), "ERC20 transfer failed: Contract may lack balance or token transfer was rejected"
-            );
-        }
+        // Event Emission
+        emit MakerPaymentSpent(id, makerSecret);
+
+        // Interactions
+        IERC1155 token = IERC1155(tokenAddress);
+        token.safeTransferFrom(address(this), msg.sender, tokenId, amount, "");
     }
 
+    // todo change to erc1155 and erc721
     function refundMakerPaymentTimelock(
         bytes32 id,
         uint256 amount,
