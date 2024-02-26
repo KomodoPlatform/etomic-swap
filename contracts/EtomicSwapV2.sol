@@ -2,8 +2,11 @@
 
 pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract EtomicSwapV2 {
+    using SafeERC20 for IERC20;
+
     enum MakerPaymentState {
         Uninitialized,
         PaymentSent,
@@ -112,11 +115,7 @@ contract EtomicSwapV2 {
 
         // Now performing the external interaction
         IERC20 token = IERC20(tokenAddress);
-        // Ensure that the token transfer from the sender to the contract is successful
-        require(
-            token.transferFrom(msg.sender, address(this), amount),
-            "ERC20 transfer failed: Insufficient balance or allowance"
-        );
+        token.safeTransferFrom(msg.sender, address(this), amount);
     }
 
     function spendMakerPayment(
@@ -149,9 +148,7 @@ contract EtomicSwapV2 {
             payable(msg.sender).transfer(amount);
         } else {
             IERC20 token = IERC20(tokenAddress);
-            require(
-                token.transfer(msg.sender, amount), "ERC20 transfer failed: Contract may lack balance or token transfer was rejected"
-            );
+            token.safeTransfer(msg.sender, amount);
         }
     }
 
@@ -197,7 +194,7 @@ contract EtomicSwapV2 {
             payable(msg.sender).transfer(amount);
         } else {
             IERC20 token = IERC20(tokenAddress);
-            require(token.transfer(msg.sender, amount));
+            token.safeTransfer(msg.sender, amount);
         }
     }
 
@@ -238,7 +235,7 @@ contract EtomicSwapV2 {
             payable(msg.sender).transfer(amount);
         } else {
             IERC20 token = IERC20(tokenAddress);
-            require(token.transfer(msg.sender, amount));
+            token.safeTransfer(msg.sender, amount);
         }
     }
 
@@ -307,11 +304,7 @@ contract EtomicSwapV2 {
 
         // Now performing the external interaction
         IERC20 token = IERC20(tokenAddress);
-        // Ensure that the token transfer from the sender to the contract is successful
-        require(
-            token.transferFrom(msg.sender, address(this), amount + dexFee),
-            "ERC20 transfer failed: Insufficient balance or allowance"
-        );
+        token.safeTransferFrom(msg.sender, address(this), amount + dexFee);
     }
 
     function takerPaymentApprove(
@@ -383,12 +376,8 @@ contract EtomicSwapV2 {
             payable(dexFeeAddress).transfer(dexFee);
         } else {
             IERC20 token = IERC20(tokenAddress);
-            require(
-                token.transfer(msg.sender, amount), "ERC20 transfer failed: Contract may lack balance or token transfer was rejected"
-            );
-            require(
-                token.transfer(dexFeeAddress, dexFee), "ERC20 transfer failed: Contract may lack balance or token transfer was rejected"
-            );
+            token.safeTransfer(msg.sender, amount);
+            token.safeTransfer(dexFeeAddress, dexFee);
         }
     }
 
@@ -437,7 +426,7 @@ contract EtomicSwapV2 {
             payable(msg.sender).transfer(total_amount);
         } else {
             IERC20 token = IERC20(tokenAddress);
-            require(token.transfer(msg.sender, total_amount));
+            token.safeTransfer(msg.sender, total_amount);
         }
     }
 
@@ -481,7 +470,7 @@ contract EtomicSwapV2 {
             payable(msg.sender).transfer(total_amount);
         } else {
             IERC20 token = IERC20(tokenAddress);
-            require(token.transfer(msg.sender, total_amount));
+            token.safeTransfer(msg.sender, total_amount);
         }
     }
 }
