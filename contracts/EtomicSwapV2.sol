@@ -20,7 +20,7 @@ contract EtomicSwapV2 {
     event MakerPaymentSent(bytes32 id);
     event MakerPaymentSpent(bytes32 id, bytes32 secret);
     event MakerPaymentRefundedTimelock(bytes32 id);
-    event MakerPaymentRefundedSecret(bytes32 id, bytes32 secret);
+    event MakerPaymentRefundedSecret(bytes32 id);
 
     mapping(bytes32 => MakerPayment) public makerPayments;
 
@@ -143,6 +143,8 @@ contract EtomicSwapV2 {
 
         makerPayments[id].state = MakerPaymentState.TakerSpent;
 
+        emit MakerPaymentSpent(id, makerSecret);
+
         if (tokenAddress == address(0)) {
             payable(msg.sender).transfer(amount);
         } else {
@@ -230,7 +232,7 @@ contract EtomicSwapV2 {
 
         makerPayments[id].state = MakerPaymentState.MakerRefunded;
 
-        emit MakerPaymentRefundedSecret(id, takerSecret);
+        emit MakerPaymentRefundedSecret(id);
 
         if (tokenAddress == address(0)) {
             payable(msg.sender).transfer(amount);
@@ -373,6 +375,8 @@ contract EtomicSwapV2 {
         require(paymentHash == takerPayments[id].paymentHash, "Invalid paymentHash");
 
         takerPayments[id].state = TakerPaymentState.MakerSpent;
+
+        emit TakerPaymentSpent(id, makerSecret);
 
         if (tokenAddress == address(0)) {
             payable(msg.sender).transfer(amount);

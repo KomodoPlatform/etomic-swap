@@ -59,21 +59,21 @@ describe("EtomicSwapV2", function() {
 
         EtomicSwapV2 = await ethers.getContractFactory("EtomicSwapV2");
         etomicSwapV2 = await EtomicSwapV2.deploy(dexFeeAddr);
-        etomicSwapV2.waitForDeployment();
+        await etomicSwapV2.waitForDeployment();
 
         Token = await ethers.getContractFactory("Token");
         token = await Token.deploy();
-        token.waitForDeployment();
+        await token.waitForDeployment();
 
         await token.transfer(accounts[1].address, ethers.parseEther('100'));
     });
 
     it('should create contract with uninitialized payments', async function() {
-        const taker_payment = await etomicSwapV2.takerPayments(id);
-        expect(Number(taker_payment[3])).to.equal(TAKER_PAYMENT_UNINITIALIZED);
+        const takerPayment = await etomicSwapV2.takerPayments(id);
+        expect(Number(takerPayment[3])).to.equal(TAKER_PAYMENT_UNINITIALIZED);
 
-        const maker_payment = await etomicSwapV2.makerPayments(id);
-        expect(Number(maker_payment[2])).to.equal(MAKER_PAYMENT_UNINITIALIZED);
+        const makerPayment = await etomicSwapV2.makerPayments(id);
+        expect(Number(makerPayment[2])).to.equal(MAKER_PAYMENT_UNINITIALIZED);
     });
 
     it('should allow maker to send ETH payment', async function() {
@@ -147,12 +147,16 @@ describe("EtomicSwapV2", function() {
             makerSecretHash,
             paymentLockTime
         ];
+
+        const makerSwapRunner = etomicSwapV2.connect(accounts[0]);
+        const takerSwapRunner = etomicSwapV2.connect(accounts[1]);
+
         // Make the ETH payment
-        await etomicSwapV2.connect(accounts[0]).ethMakerPayment(...payment_params, {
+        await makerSwapRunner.ethMakerPayment(...payment_params, {
             value: ethers.parseEther('1')
         }).should.be.fulfilled;
 
-        const spendParams_invalid_secret = [
+        const spendParamsInvalidSecret = [
             id,
             ethers.parseEther('1'),
             accounts[0].address,
@@ -160,9 +164,9 @@ describe("EtomicSwapV2", function() {
             invalidSecret,
             zeroAddr,
         ];
-        await etomicSwapV2.connect(accounts[1]).spendMakerPayment(...spendParams_invalid_secret).should.be.rejectedWith(INVALID_HASH);
+        await takerSwapRunner.spendMakerPayment(...spendParamsInvalidSecret).should.be.rejectedWith(INVALID_HASH);
 
-        const spendParams_invalid_amount = [
+        const spendParamsInvalidAmount = [
             id,
             ethers.parseEther('0.9'),
             accounts[0].address,
@@ -170,7 +174,7 @@ describe("EtomicSwapV2", function() {
             makerSecret,
             zeroAddr,
         ];
-        await etomicSwapV2.connect(accounts[1]).spendMakerPayment(...spendParams_invalid_amount).should.be.rejectedWith(INVALID_HASH);
+        await takerSwapRunner.spendMakerPayment(...spendParamsInvalidAmount).should.be.rejectedWith(INVALID_HASH);
 
         const spendParams = [
             id,
@@ -187,7 +191,7 @@ describe("EtomicSwapV2", function() {
         const balanceBefore = await ethers.provider.getBalance(accounts[1].address);
         const gasPrice = ethers.parseUnits('100', 'gwei');
 
-        const spendTx = await etomicSwapV2.connect(accounts[1]).spendMakerPayment(...spendParams, {
+        const spendTx = await takerSwapRunner.spendMakerPayment(...spendParams, {
             gasPrice
         }).should.be.fulfilled;
 
@@ -204,7 +208,7 @@ describe("EtomicSwapV2", function() {
         expect(Number(payment[2])).to.equal(TAKER_SPENT);
 
         // should not allow to spend again
-        await etomicSwapV2.connect(accounts[1]).spendMakerPayment(...spendParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
+        await takerSwapRunner.spendMakerPayment(...spendParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
     });
 
     it('should allow taker to spend ERC20 maker payment', async function() {
@@ -220,14 +224,17 @@ describe("EtomicSwapV2", function() {
             paymentLockTime
         ];
 
+        const makerSwapRunner = etomicSwapV2.connect(accounts[0]);
+        const takerSwapRunner = etomicSwapV2.connect(accounts[1]);
+
         // Make the ERC20 payment
         await token.approve(etomicSwapV2.target, ethers.parseEther('1'));
-        await etomicSwapV2.connect(accounts[0]).erc20MakerPayment(...payment_params).should.be.fulfilled;
+        await makerSwapRunner.erc20MakerPayment(...payment_params).should.be.fulfilled;
 
         const contractBalance = await token.balanceOf(etomicSwapV2.target);
         expect(contractBalance).to.equal(ethers.parseEther('1'));
 
-        const spendParams_invalid_secret = [
+        const spendParamsInvalidSecret = [
             id,
             ethers.parseEther('1'),
             accounts[0].address,
@@ -235,9 +242,9 @@ describe("EtomicSwapV2", function() {
             invalidSecret,
             token.target,
         ];
-        await etomicSwapV2.connect(accounts[1]).spendMakerPayment(...spendParams_invalid_secret).should.be.rejectedWith(INVALID_HASH);
+        await takerSwapRunner.spendMakerPayment(...spendParamsInvalidSecret).should.be.rejectedWith(INVALID_HASH);
 
-        const spendParams_invalid_amount = [
+        const spendParamsInvalidAmount = [
             id,
             ethers.parseEther('0.9'),
             accounts[0].address,
@@ -245,7 +252,7 @@ describe("EtomicSwapV2", function() {
             makerSecret,
             token.target,
         ];
-        await etomicSwapV2.connect(accounts[1]).spendMakerPayment(...spendParams_invalid_amount).should.be.rejectedWith(INVALID_HASH);
+        await takerSwapRunner.spendMakerPayment(...spendParamsInvalidAmount).should.be.rejectedWith(INVALID_HASH);
 
         const spendParams = [
             id,
@@ -262,7 +269,7 @@ describe("EtomicSwapV2", function() {
         const balanceBefore = await token.balanceOf(accounts[1].address);
 
         const gasPrice = ethers.parseUnits('100', 'gwei');
-        await etomicSwapV2.connect(accounts[1]).spendMakerPayment(...spendParams, {
+        await takerSwapRunner.spendMakerPayment(...spendParams, {
             gasPrice
         }).should.be.fulfilled;
 
@@ -275,7 +282,7 @@ describe("EtomicSwapV2", function() {
         expect(Number(payment[2])).to.equal(TAKER_SPENT);
 
         // should not allow to spend again
-        await etomicSwapV2.connect(accounts[1]).spendMakerPayment(...spendParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
+        await takerSwapRunner.spendMakerPayment(...spendParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
     });
 
     it('should allow maker to refund ETH payment after locktime', async function() {
