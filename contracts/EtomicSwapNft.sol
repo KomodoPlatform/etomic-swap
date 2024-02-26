@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-contract EtomicSwapV2 {
+contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
     enum MakerPaymentState {
         Uninitialized,
         PaymentSent,
@@ -479,5 +484,119 @@ contract EtomicSwapV2 {
             IERC20 token = IERC20(tokenAddress);
             require(token.transfer(msg.sender, total_amount));
         }
+    }
+
+    struct HTLCParams {
+        bytes32 id;
+        address taker;
+        address tokenAddress;
+        bytes20 takerSecretHash;
+        bytes20 makerSecretHash;
+        uint32 paymentLockTime;
+    }
+
+    function onERC1155Received(
+        address operator,
+        address from,
+        uint256 tokenId,
+        uint256 value,
+        bytes calldata data
+    ) external override returns (bytes4) {
+        // Decode the data to extract HTLC parameters
+        HTLCParams memory params = abi.decode(data, (HTLCParams));
+
+        require(params.taker != address(0), "Taker must not be zero address");
+        require(params.tokenAddress != address(0), "Token must not be zero address");
+        require(
+            msg.sender == params.tokenAddress,
+            "Token address does not match sender"
+        );
+        require(operator == from, "Operator must be the sender");
+        require(value > 0, "Value must be greater than 0");
+        require(
+            makerPayments[params.id].state == MakerPaymentState.Uninitialized,
+            "Maker ERC1155 payment must be Uninitialized"
+        );
+        require(!isContract(params.taker), "Taker cannot be a contract");
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                params.taker,
+                from,
+                params.takerSecretHash,
+                params.makerSecretHash,
+                params.tokenAddress,
+                tokenId,
+                value
+            )
+        );
+
+        makerPayments[params.id] = MakerPayment(paymentHash, params.paymentLockTime, MakerPaymentState.PaymentSent);
+        emit MakerPaymentSent(params.id);
+
+        // Return this magic value to confirm receipt of ERC1155 token
+        return this.onERC1155Received.selector;
+    }
+
+    function onERC1155BatchReceived(
+        address, /* operator */
+        address, /* from */
+        uint256[] calldata, /* ids */
+        uint256[] calldata, /* values */
+        bytes calldata /* data */
+    ) external pure override returns (bytes4) {
+        revert("Batch transfers not supported");
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+    public
+    view
+    override(ERC165, IERC165)
+    returns (bool)
+    {
+        return
+            interfaceId == type(IERC1155Receiver).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
+
+    function onERC721Received(
+        address operator,
+        address from,
+        uint256 tokenId,
+        bytes calldata data
+    ) external override returns (bytes4) {
+        // Decode the data to extract HTLC parameters
+        HTLCParams memory params = abi.decode(data, (HTLCParams));
+
+        require(params.taker != address(0), "Taker must not be zero address");
+        require(params.tokenAddress != address(0), "Token must not be zero address");
+        require(
+            msg.sender == params.tokenAddress,
+            "Token address does not match sender"
+        );
+        require(operator == from, "Operator must be the sender");
+        require(
+            makerPayments[params.id].state == MakerPaymentState.Uninitialized,
+            "Maker ERC721 payment must be Uninitialized"
+        );
+        require(!isContract(params.taker), "Taker cannot be a contract");
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(params.taker, from, params.takerSecretHash, params.makerSecretHash, params.tokenAddress, tokenId)
+        );
+
+        makerPayments[params.id] = MakerPayment(paymentHash, params.paymentLockTime, MakerPaymentState.PaymentSent);
+        emit MakerPaymentSent(params.id);
+
+        // Return this magic value to confirm receipt of ERC721 token
+        return this.onERC721Received.selector;
+    }
+
+    function isContract(address account) internal view returns (bool) {
+        uint256 size;
+        assembly {
+            size := extcodesize(account)
+        }
+        return size > 0;
     }
 }
