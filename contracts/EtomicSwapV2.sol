@@ -58,8 +58,8 @@ contract EtomicSwapV2 {
     function ethMakerPayment(
         bytes32 id,
         address taker,
-        bytes20 takerSecretHash,
-        bytes20 makerSecretHash,
+        bytes32 takerSecretHash,
+        bytes32 makerSecretHash,
         uint32 paymentLockTime
     ) external payable {
         require(makerPayments[id].state == MakerPaymentState.Uninitialized, "Maker payment is already initialized");
@@ -87,8 +87,8 @@ contract EtomicSwapV2 {
         uint256 amount,
         address tokenAddress,
         address taker,
-        bytes20 takerSecretHash,
-        bytes20 makerSecretHash,
+        bytes32 takerSecretHash,
+        bytes32 makerSecretHash,
         uint32 paymentLockTime
     ) external {
         require(makerPayments[id].state == MakerPaymentState.Uninitialized, "Maker payment is already initialized");
@@ -123,7 +123,7 @@ contract EtomicSwapV2 {
         bytes32 id,
         uint256 amount,
         address maker,
-        bytes20 takerSecretHash,
+        bytes32 takerSecretHash,
         bytes32 makerSecret,
         address tokenAddress
     ) external {
@@ -135,7 +135,7 @@ contract EtomicSwapV2 {
                 msg.sender,
                 maker,
                 takerSecretHash,
-                ripemd160(abi.encodePacked(sha256(abi.encodePacked(makerSecret)))),
+                sha256(abi.encodePacked(makerSecret)),
                 tokenAddress
             )
         );
@@ -159,8 +159,8 @@ contract EtomicSwapV2 {
         bytes32 id,
         uint256 amount,
         address taker,
-        bytes20 takerSecretHash,
-        bytes20 makerSecretHash,
+        bytes32 takerSecretHash,
+        bytes32 makerSecretHash,
         address tokenAddress
     ) external {
         require(
@@ -206,7 +206,7 @@ contract EtomicSwapV2 {
         uint256 amount,
         address taker,
         bytes32 takerSecret,
-        bytes20 makerSecretHash,
+        bytes32 makerSecretHash,
         address tokenAddress
     ) external {
         require(
@@ -219,7 +219,7 @@ contract EtomicSwapV2 {
                 amount,
                 taker,
                 msg.sender,
-                ripemd160(abi.encodePacked(sha256(abi.encodePacked(takerSecret)))),
+                sha256(abi.encodePacked(takerSecret)),
                 makerSecretHash,
                 tokenAddress
             )
@@ -246,8 +246,8 @@ contract EtomicSwapV2 {
         bytes32 id,
         uint256 dexFee,
         address receiver,
-        bytes20 takerSecretHash,
-        bytes20 makerSecretHash,
+        bytes32 takerSecretHash,
+        bytes32 makerSecretHash,
         uint32 immediateRefundLockTime,
         uint32 paymentLockTime
     ) external payable {
@@ -279,8 +279,8 @@ contract EtomicSwapV2 {
         uint256 dexFee,
         address tokenAddress,
         address receiver,
-        bytes20 takerSecretHash,
-        bytes20 makerSecretHash,
+        bytes32 takerSecretHash,
+        bytes32 makerSecretHash,
         uint32 immediateRefundLockTime,
         uint32 paymentLockTime
     ) external {
@@ -319,8 +319,8 @@ contract EtomicSwapV2 {
         uint256 amount,
         uint256 dexFee,
         address maker,
-        bytes20 takerSecretHash,
-        bytes20 makerSecretHash,
+        bytes32 takerSecretHash,
+        bytes32 makerSecretHash,
         address tokenAddress
     ) external {
         require(
@@ -355,7 +355,7 @@ contract EtomicSwapV2 {
         uint256 amount,
         uint256 dexFee,
         address taker,
-        bytes20 takerSecretHash,
+        bytes32 takerSecretHash,
         bytes32 makerSecret,
         address tokenAddress
     ) external {
@@ -368,7 +368,7 @@ contract EtomicSwapV2 {
                 msg.sender,
                 taker,
                 takerSecretHash,
-                ripemd160(abi.encodePacked(sha256(abi.encodePacked(makerSecret)))),
+                sha256(abi.encodePacked(makerSecret)),
                 tokenAddress
             )
         );
@@ -397,8 +397,8 @@ contract EtomicSwapV2 {
         uint256 amount,
         uint256 dexFee,
         address maker,
-        bytes20 takerSecretHash,
-        bytes20 makerSecretHash,
+        bytes32 takerSecretHash,
+        bytes32 makerSecretHash,
         address tokenAddress
     ) external {
         require(
@@ -447,7 +447,7 @@ contract EtomicSwapV2 {
         uint256 dexFee,
         address maker,
         bytes32 takerSecret,
-        bytes20 makerSecretHash,
+        bytes32 makerSecretHash,
         address tokenAddress
     ) external {
         require(
@@ -461,7 +461,7 @@ contract EtomicSwapV2 {
                 dexFee,
                 maker,
                 msg.sender,
-                ripemd160(abi.encodePacked(sha256(abi.encodePacked(takerSecret)))),
+                sha256(abi.encodePacked(takerSecret)),
                 makerSecretHash,
                 tokenAddress
             )

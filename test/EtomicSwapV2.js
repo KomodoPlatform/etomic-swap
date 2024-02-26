@@ -42,10 +42,10 @@ const [TAKER_PAYMENT_UNINITIALIZED, TAKER_PAYMENT_SENT, TAKER_PAYMENT_APPROVED, 
 const [MAKER_PAYMENT_UNINITIALIZED, MAKER_PAYMENT_SENT, TAKER_SPENT, MAKER_REFUNDED] = [0, 1, 2, 3];
 
 const takerSecret = crypto.randomBytes(32);
-const takerSecretHash = '0x' + new RIPEMD160().update(crypto.createHash('sha256').update(takerSecret).digest()).digest('hex');
+const takerSecretHash = '0x' + crypto.createHash('sha256').update(takerSecret).digest('hex');
 
 const makerSecret = crypto.randomBytes(32);
-const makerSecretHash = '0x' + new RIPEMD160().update(crypto.createHash('sha256').update(makerSecret).digest()).digest('hex');
+const makerSecretHash = '0x' + crypto.createHash('sha256').update(makerSecret).digest('hex');
 
 const invalidSecret = crypto.randomBytes(32);
 
