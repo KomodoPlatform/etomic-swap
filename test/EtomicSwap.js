@@ -57,7 +57,6 @@ describe("EtomicSwap", function() {
     beforeEach(async function() {
         accounts = await ethers.getSigners();
 
-
         EtomicSwap = await ethers.getContractFactory("EtomicSwap");
         etomicSwap = await EtomicSwap.deploy();
         etomicSwap.waitForDeployment();
