@@ -15,6 +15,7 @@ const INVALID_HASH = 'Invalid paymentHash';
 const INVALID_PAYMENT_STATE_SENT = 'Invalid payment state. Must be PaymentSent';
 const INVALID_PAYMENT_STATE_APPROVED = 'Invalid payment state. Must be TakerApproved';
 const REFUND_TIMESTAMP_NOT_REACHED = 'Current timestamp didn\'t exceed payment refund lock time';
+const PRE_APPROVE_REFUND_TIMESTAMP_NOT_REACHED = 'Current timestamp didn\'t exceed payment pre-approve lock time';
 
 /**
  * Advances the Ethereum Virtual Machine (EVM) time by a specified amount and then mines a new block.
@@ -326,7 +327,7 @@ describe("EtomicSwapV2", function() {
         await etomicSwapRunner1.refundMakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_HASH);
 
         // Not allow to refund invalid amount
-        let invalid_amount_params = [
+        let invalidAmountParams = [
             id,
             ethers.parseEther('0.9'),
             accounts[1].address,
@@ -334,7 +335,7 @@ describe("EtomicSwapV2", function() {
             makerSecretHash,
             zeroAddr,
         ];
-        await etomicSwapRunner0.refundMakerPaymentTimelock(...invalid_amount_params).should.be.rejectedWith(INVALID_HASH);
+        await etomicSwapRunner0.refundMakerPaymentTimelock(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
 
         // Success refund
         const balanceBefore = await ethers.provider.getBalance(accounts[0].address);
@@ -396,7 +397,7 @@ describe("EtomicSwapV2", function() {
         await etomicSwapRunner1.refundMakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_HASH);
 
         // Not allow to refund invalid amount
-        const invalid_amount_params = [
+        const invalidAmountParams = [
             id,
             ethers.parseEther('0.9'),
             accounts[1].address,
@@ -405,7 +406,7 @@ describe("EtomicSwapV2", function() {
             token.target,
         ];
 
-        await etomicSwapRunner0.refundMakerPaymentTimelock(...invalid_amount_params).should.be.rejectedWith(INVALID_HASH);
+        await etomicSwapRunner0.refundMakerPaymentTimelock(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
 
         // Success refund
         const balanceBefore = await token.balanceOf(accounts[0].address);
@@ -460,7 +461,7 @@ describe("EtomicSwapV2", function() {
         await etomicSwapRunner1.refundMakerPaymentSecret(...refundParams).should.be.rejectedWith(INVALID_HASH);
 
         // Not allow to refund invalid amount
-        let invalid_amount_params = [
+        let invalidAmountParams = [
             id,
             ethers.parseEther('0.9'),
             accounts[1].address,
@@ -468,7 +469,7 @@ describe("EtomicSwapV2", function() {
             makerSecretHash,
             zeroAddr,
         ];
-        await etomicSwapRunner0.refundMakerPaymentSecret(...invalid_amount_params).should.be.rejectedWith(INVALID_HASH);
+        await etomicSwapRunner0.refundMakerPaymentSecret(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
 
         // Success refund
         const balanceBefore = await ethers.provider.getBalance(accounts[0].address);
@@ -526,7 +527,7 @@ describe("EtomicSwapV2", function() {
         await etomicSwapRunner1.refundMakerPaymentSecret(...refundParams).should.be.rejectedWith(INVALID_HASH);
 
         // Not allow to refund invalid amount
-        const invalid_amount_params = [
+        const invalidAmountParams = [
             id,
             ethers.parseEther('0.9'),
             accounts[1].address,
@@ -535,7 +536,7 @@ describe("EtomicSwapV2", function() {
             token.target,
         ];
 
-        await etomicSwapRunner0.refundMakerPaymentSecret(...invalid_amount_params).should.be.rejectedWith(INVALID_HASH);
+        await etomicSwapRunner0.refundMakerPaymentSecret(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
 
         // Success refund
         const balanceBefore = await token.balanceOf(accounts[0].address);
@@ -819,20 +820,22 @@ describe("EtomicSwapV2", function() {
         await etomicSwapV2.connect(accounts[1]).spendTakerPayment(...spendParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_APPROVED);
     });
 
-    it('should allow taker to refund ETH payment after locktime', async function() {
-        const lockTime = (await ethers.provider.getBlock('latest')).timestamp + 1000;
+    it('should allow taker to refund approved ETH payment after locktime', async function() {
+        const preApproveLockTime = await currentEvmTime() + 3000;
+        const paymentLockTime = await currentEvmTime() + 1000;
+
         const params = [
             id,
             ethers.parseEther('0.1'), // dexFee
             accounts[1].address,
             takerSecretHash,
             makerSecretHash,
-            lockTime,
-            lockTime
+            preApproveLockTime,
+            paymentLockTime,
         ];
 
-        let etomicSwapRunner0 = etomicSwapV2.connect(accounts[0]);
-        let etomicSwapRunner1 = etomicSwapV2.connect(accounts[1]);
+        let takerSwapRunner = etomicSwapV2.connect(accounts[0]);
+        let makerSwapRunner = etomicSwapV2.connect(accounts[1]);
 
         // Not allow to refund if payment was not sent
         const refundParams = [
@@ -845,22 +848,33 @@ describe("EtomicSwapV2", function() {
             zeroAddr
         ];
 
-        await etomicSwapRunner0.refundTakerPaymentTimelock(...refundParams)
-            .should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
+        await takerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
 
         // Make the ETH payment
-        await etomicSwapRunner0.ethTakerPayment(...params, {
+        await takerSwapRunner.ethTakerPayment(...params, {
             value: ethers.parseEther('1')
         }).should.be.fulfilled;
 
+        const approveParams = [
+            id,
+            ethers.parseEther('0.9'),
+            ethers.parseEther('0.1'),
+            accounts[1].address,
+            takerSecretHash,
+            makerSecretHash,
+            zeroAddr,
+        ];
+
+        await takerSwapRunner.takerPaymentApprove(...approveParams).should.be.fulfilled;
+
         // Not allow to refund before locktime
-        await etomicSwapRunner0.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(REFUND_TIMESTAMP_NOT_REACHED);
+        await takerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(REFUND_TIMESTAMP_NOT_REACHED);
 
         // Simulate time passing to exceed the locktime
         await advanceTimeAndMine(1000);
 
         // Not allow to call refund from non-sender address
-        await etomicSwapRunner1.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_HASH);
+        await makerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_HASH);
 
         // Not allow to refund invalid amount
         const invalidAmountParams = [
@@ -873,7 +887,7 @@ describe("EtomicSwapV2", function() {
             zeroAddr
         ];
 
-        await etomicSwapRunner0.refundTakerPaymentTimelock(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
+        await takerSwapRunner.refundTakerPaymentTimelock(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
 
         const invalidDexFeeParams = [
             id,
@@ -885,13 +899,13 @@ describe("EtomicSwapV2", function() {
             zeroAddr
         ];
 
-        await etomicSwapRunner0.refundTakerPaymentTimelock(...invalidDexFeeParams).should.be.rejectedWith(INVALID_HASH);
+        await takerSwapRunner.refundTakerPaymentTimelock(...invalidDexFeeParams).should.be.rejectedWith(INVALID_HASH);
 
         // Success refund
         const balanceBefore = await ethers.provider.getBalance(accounts[0].address);
         const gasPrice = ethers.parseUnits('100', 'gwei');
 
-        const tx = await etomicSwapRunner0.refundTakerPaymentTimelock(...refundParams, {
+        const tx = await takerSwapRunner.refundTakerPaymentTimelock(...refundParams, {
             gasPrice
         }).should.be.fulfilled;
 
@@ -908,11 +922,108 @@ describe("EtomicSwapV2", function() {
         expect(payment.state).to.equal(BigInt(TAKER_REFUNDED));
 
         // Not allow to refund again
-        await etomicSwapRunner0.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
+        await takerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
     });
 
-    it('should allow taker to refund ERC20 payment after locktime', async function() {
-        const lockTime = await currentEvmTime() + 1000;
+    it('should allow taker to refund non-approved ETH payment only after pre-approve locktime', async function() {
+        const preApproveLockTime = await currentEvmTime() + 3000;
+        const paymentLockTime = await currentEvmTime() + 1000;
+
+        const params = [
+            id,
+            ethers.parseEther('0.1'), // dexFee
+            accounts[1].address,
+            takerSecretHash,
+            makerSecretHash,
+            preApproveLockTime,
+            paymentLockTime,
+        ];
+
+        let takerSwapRunner = etomicSwapV2.connect(accounts[0]);
+        let makerSwapRunner = etomicSwapV2.connect(accounts[1]);
+
+        // Not allow to refund if payment was not sent
+        const refundParams = [
+            id,
+            ethers.parseEther('0.9'),
+            ethers.parseEther('0.1'),
+            accounts[1].address,
+            takerSecretHash,
+            makerSecretHash,
+            zeroAddr
+        ];
+
+        await takerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
+
+        // Make the ETH payment
+        await takerSwapRunner.ethTakerPayment(...params, {
+            value: ethers.parseEther('1')
+        }).should.be.fulfilled;
+
+        await advanceTimeAndMine(2000);
+
+        // Not allow to refund before pre-approve locktime
+        await takerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(PRE_APPROVE_REFUND_TIMESTAMP_NOT_REACHED);
+
+        // Simulate time passing to exceed the locktime
+        await advanceTimeAndMine(3000);
+
+        // Not allow to call refund from non-sender address
+        await makerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_HASH);
+
+        // Not allow to refund invalid amount
+        const invalidAmountParams = [
+            id,
+            ethers.parseEther('0.8'),
+            ethers.parseEther('0.1'),
+            accounts[1].address,
+            takerSecretHash,
+            makerSecretHash,
+            zeroAddr
+        ];
+
+        await takerSwapRunner.refundTakerPaymentTimelock(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
+
+        const invalidDexFeeParams = [
+            id,
+            ethers.parseEther('0.9'),
+            ethers.parseEther('0.2'),
+            accounts[1].address,
+            takerSecretHash,
+            makerSecretHash,
+            zeroAddr
+        ];
+
+        await takerSwapRunner.refundTakerPaymentTimelock(...invalidDexFeeParams).should.be.rejectedWith(INVALID_HASH);
+
+        // Success refund
+        const balanceBefore = await ethers.provider.getBalance(accounts[0].address);
+        const gasPrice = ethers.parseUnits('100', 'gwei');
+
+        const tx = await takerSwapRunner.refundTakerPaymentTimelock(...refundParams, {
+            gasPrice
+        }).should.be.fulfilled;
+
+        const receipt = await tx.wait();
+        const gasUsed = ethers.parseUnits(receipt.gasUsed.toString(), 'wei');
+        const txFee = gasUsed * gasPrice;
+
+        const balanceAfter = await ethers.provider.getBalance(accounts[0].address);
+        // Check sender balance
+        expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('1'));
+
+        // Check the state of the payment
+        const payment = await etomicSwapV2.takerPayments(id);
+        expect(payment.state).to.equal(BigInt(TAKER_REFUNDED));
+
+        // Not allow to refund again
+        await takerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
+    });
+
+    it('should allow taker to refund approved ERC20 payment after locktime', async function() {
+        const preApproveLockTime = await currentEvmTime() + 3000;
+        const paymentLockTime = await currentEvmTime() + 1000;
+
         const params = [
             id,
             ethers.parseEther('0.9'),
@@ -921,16 +1032,16 @@ describe("EtomicSwapV2", function() {
             accounts[1].address,
             takerSecretHash,
             makerSecretHash,
-            lockTime,
-            lockTime
+            preApproveLockTime,
+            paymentLockTime,
         ];
 
-        let etomicSwapRunner0 = etomicSwapV2.connect(accounts[0]);
-        let etomicSwapRunner1 = etomicSwapV2.connect(accounts[1]);
+        let takerSwapRunner = etomicSwapV2.connect(accounts[0]);
+        let makerSwapRunner = etomicSwapV2.connect(accounts[1]);
 
         await token.approve(etomicSwapV2.target, ethers.parseEther('1'));
         // Make the ERC20 payment
-        await expect(etomicSwapRunner0.erc20TakerPayment(...params)).to.be.fulfilled;
+        await expect(takerSwapRunner.erc20TakerPayment(...params)).to.be.fulfilled;
 
         const refundParams = [
             id,
@@ -942,15 +1053,27 @@ describe("EtomicSwapV2", function() {
             token.target,
         ];
 
-        await etomicSwapRunner0.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(REFUND_TIMESTAMP_NOT_REACHED);
+        const approveParams = [
+            id,
+            ethers.parseEther('0.9'),
+            ethers.parseEther('0.1'),
+            accounts[1].address,
+            takerSecretHash,
+            makerSecretHash,
+            token.target,
+        ];
+
+        await takerSwapRunner.takerPaymentApprove(...approveParams).should.be.fulfilled;
+
+        await takerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(REFUND_TIMESTAMP_NOT_REACHED);
 
         await advanceTimeAndMine(1000);
 
         // Not allow to call refund from non-sender address
-        await etomicSwapRunner1.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_HASH);
+        await makerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_HASH);
 
         // Not allow to refund invalid amount
-        const invalid_amount_params = [
+        const invalidAmountParams = [
             id,
             ethers.parseEther('0.8'),
             ethers.parseEther('0.1'),
@@ -960,9 +1083,9 @@ describe("EtomicSwapV2", function() {
             token.target,
         ];
 
-        await etomicSwapRunner0.refundTakerPaymentTimelock(...invalid_amount_params).should.be.rejectedWith(INVALID_HASH);
+        await takerSwapRunner.refundTakerPaymentTimelock(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
 
-        const invalid_dex_fee_params = [
+        const invalidDexFeeParams = [
             id,
             ethers.parseEther('0.9'),
             ethers.parseEther('0.2'),
@@ -972,12 +1095,12 @@ describe("EtomicSwapV2", function() {
             token.target,
         ];
 
-        await etomicSwapRunner0.refundTakerPaymentTimelock(...invalid_dex_fee_params).should.be.rejectedWith(INVALID_HASH);
+        await takerSwapRunner.refundTakerPaymentTimelock(...invalidDexFeeParams).should.be.rejectedWith(INVALID_HASH);
 
         // Success refund
         const balanceBefore = await token.balanceOf(accounts[0].address);
 
-        await etomicSwapRunner0.refundTakerPaymentTimelock(...refundParams).should.be.fulfilled;
+        await takerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.fulfilled;
 
         const balanceAfter = await token.balanceOf(accounts[0].address);
 
@@ -989,19 +1112,106 @@ describe("EtomicSwapV2", function() {
         expect(payment.state).to.equal(BigInt(TAKER_REFUNDED));
 
         // Do not allow to refund again
-        await etomicSwapRunner0.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
+        await takerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
+    });
+
+    it('should allow taker to refund non-approved ERC20 payment only after pre-approve locktime', async function() {
+        const preApproveLockTime = await currentEvmTime() + 3000;
+        const paymentLockTime = await currentEvmTime() + 1000;
+
+        const params = [
+            id,
+            ethers.parseEther('0.9'),
+            ethers.parseEther('0.1'),
+            token.target,
+            accounts[1].address,
+            takerSecretHash,
+            makerSecretHash,
+            preApproveLockTime,
+            paymentLockTime,
+        ];
+
+        let takerSwapRunner = etomicSwapV2.connect(accounts[0]);
+        let makerSwapRunner = etomicSwapV2.connect(accounts[1]);
+
+        await token.approve(etomicSwapV2.target, ethers.parseEther('1'));
+        // Make the ERC20 payment
+        await expect(takerSwapRunner.erc20TakerPayment(...params)).to.be.fulfilled;
+
+        const refundParams = [
+            id,
+            ethers.parseEther('0.9'),
+            ethers.parseEther('0.1'),
+            accounts[1].address,
+            takerSecretHash,
+            makerSecretHash,
+            token.target,
+        ];
+
+        await advanceTimeAndMine(2000);
+
+        await takerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(PRE_APPROVE_REFUND_TIMESTAMP_NOT_REACHED);
+
+        await advanceTimeAndMine(1000);
+
+        // Not allow to call refund from non-sender address
+        await makerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_HASH);
+
+        // Not allow to refund invalid amount
+        const invalidAmountParams = [
+            id,
+            ethers.parseEther('0.8'),
+            ethers.parseEther('0.1'),
+            accounts[1].address,
+            takerSecretHash,
+            makerSecretHash,
+            token.target,
+        ];
+
+        await takerSwapRunner.refundTakerPaymentTimelock(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
+
+        const invalidDexFeeParams = [
+            id,
+            ethers.parseEther('0.9'),
+            ethers.parseEther('0.2'),
+            accounts[1].address,
+            takerSecretHash,
+            makerSecretHash,
+            token.target,
+        ];
+
+        await takerSwapRunner.refundTakerPaymentTimelock(...invalidDexFeeParams).should.be.rejectedWith(INVALID_HASH);
+
+        // Success refund
+        const balanceBefore = await token.balanceOf(accounts[0].address);
+
+        await takerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.fulfilled;
+
+        const balanceAfter = await token.balanceOf(accounts[0].address);
+
+        // Check sender balance
+        expect((balanceAfter - balanceBefore)).to.equal(ethers.parseEther('1'));
+
+        // Check the state of the payment
+        const payment = await etomicSwapV2.takerPayments(id);
+        expect(payment.state).to.equal(BigInt(TAKER_REFUNDED));
+
+        // Do not allow to refund again
+        await takerSwapRunner.refundTakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
     });
 
     it('should allow taker to refund ETH payment using secret', async function() {
-        const lockTime = (await ethers.provider.getBlock('latest')).timestamp + 1000;
+        const preApproveLockTime = await currentEvmTime() + 3000;
+        const paymentLockTime = await currentEvmTime() + 1000;
+
         const params = [
             id,
             ethers.parseEther('0.1'), // dexFee
             accounts[1].address,
             takerSecretHash,
             makerSecretHash,
-            lockTime,
-            lockTime
+            preApproveLockTime,
+            paymentLockTime,
         ];
 
         let etomicSwapRunner0 = etomicSwapV2.connect(accounts[0]);
@@ -1078,7 +1288,9 @@ describe("EtomicSwapV2", function() {
     });
 
     it('should allow taker to refund ERC20 payment using secret', async function() {
-        const lockTime = await currentEvmTime() + 1000;
+        const preApproveLockTime = await currentEvmTime() + 3000;
+        const paymentLockTime = await currentEvmTime() + 1000;
+
         const params = [
             id,
             ethers.parseEther('0.9'),
@@ -1087,8 +1299,8 @@ describe("EtomicSwapV2", function() {
             accounts[1].address,
             takerSecretHash,
             makerSecretHash,
-            lockTime,
-            lockTime
+            preApproveLockTime,
+            paymentLockTime,
         ];
 
         let etomicSwapRunner0 = etomicSwapV2.connect(accounts[0]);
@@ -1112,7 +1324,7 @@ describe("EtomicSwapV2", function() {
         await etomicSwapRunner1.refundTakerPaymentSecret(...refundParams).should.be.rejectedWith(INVALID_HASH);
 
         // Not allow to refund invalid amount
-        const invalid_amount_params = [
+        const invalidAmountParams = [
             id,
             ethers.parseEther('0.8'),
             ethers.parseEther('0.1'),
@@ -1122,9 +1334,9 @@ describe("EtomicSwapV2", function() {
             token.target,
         ];
 
-        await etomicSwapRunner0.refundTakerPaymentSecret(...invalid_amount_params).should.be.rejectedWith(INVALID_HASH);
+        await etomicSwapRunner0.refundTakerPaymentSecret(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
 
-        const invalid_dex_fee_params = [
+        const invalidDexFeeParams = [
             id,
             ethers.parseEther('0.9'),
             ethers.parseEther('0.2'),
@@ -1134,7 +1346,7 @@ describe("EtomicSwapV2", function() {
             token.target,
         ];
 
-        await etomicSwapRunner0.refundTakerPaymentSecret(...invalid_dex_fee_params).should.be.rejectedWith(INVALID_HASH);
+        await etomicSwapRunner0.refundTakerPaymentSecret(...invalidDexFeeParams).should.be.rejectedWith(INVALID_HASH);
 
         // Success refund
         const balanceBefore = await token.balanceOf(accounts[0].address);
