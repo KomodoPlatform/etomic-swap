@@ -21,7 +21,7 @@ contract EtomicSwapV2 {
     }
 
     event MakerPaymentSent(bytes32 id);
-    event MakerPaymentSpent(bytes32 id, bytes32 secret);
+    event MakerPaymentSpent(bytes32 id);
     event MakerPaymentRefundedTimelock(bytes32 id);
     event MakerPaymentRefundedSecret(bytes32 id);
 
@@ -37,7 +37,7 @@ contract EtomicSwapV2 {
 
     struct TakerPayment {
         bytes20 paymentHash;
-        uint32 immediateRefundTime;
+        uint32 preApproveLockTime;
         uint32 paymentLockTime;
         TakerPaymentState state;
     }
@@ -142,7 +142,7 @@ contract EtomicSwapV2 {
 
         makerPayments[id].state = MakerPaymentState.TakerSpent;
 
-        emit MakerPaymentSpent(id, makerSecret);
+        emit MakerPaymentSpent(id);
 
         if (tokenAddress == address(0)) {
             payable(msg.sender).transfer(amount);
@@ -245,7 +245,7 @@ contract EtomicSwapV2 {
         address receiver,
         bytes32 takerSecretHash,
         bytes32 makerSecretHash,
-        uint32 immediateRefundLockTime,
+        uint32 preApproveLockTime,
         uint32 paymentLockTime
     ) external payable {
         require(takerPayments[id].state == TakerPaymentState.Uninitialized, "Taker payment is already initialized");
@@ -265,7 +265,7 @@ contract EtomicSwapV2 {
             )
         );
 
-        takerPayments[id] = TakerPayment(paymentHash, immediateRefundLockTime, paymentLockTime, TakerPaymentState.PaymentSent);
+        takerPayments[id] = TakerPayment(paymentHash, preApproveLockTime, paymentLockTime, TakerPaymentState.PaymentSent);
 
         emit TakerPaymentSent(id);
     }
@@ -278,7 +278,7 @@ contract EtomicSwapV2 {
         address receiver,
         bytes32 takerSecretHash,
         bytes32 makerSecretHash,
-        uint32 immediateRefundLockTime,
+        uint32 preApproveLockTime,
         uint32 paymentLockTime
     ) external {
         require(takerPayments[id].state == TakerPaymentState.Uninitialized, "ERC20 v2 payment is already initialized");
@@ -298,7 +298,7 @@ contract EtomicSwapV2 {
             )
         );
 
-        takerPayments[id] = TakerPayment(paymentHash, immediateRefundLockTime, paymentLockTime, TakerPaymentState.PaymentSent);
+        takerPayments[id] = TakerPayment(paymentHash, preApproveLockTime, paymentLockTime, TakerPaymentState.PaymentSent);
 
         emit TakerPaymentSent(id);
 
@@ -412,10 +412,19 @@ contract EtomicSwapV2 {
             "Invalid paymentHash"
         );
 
-        require(
-            block.timestamp >= takerPayments[id].paymentLockTime,
-            "Current timestamp didn't exceed payment refund lock time"
-        );
+        if (takerPayments[id].state == TakerPaymentState.TakerApproved) {
+            require(
+                block.timestamp >= takerPayments[id].paymentLockTime,
+                "Current timestamp didn't exceed payment refund lock time"
+            );
+        }
+
+        if (takerPayments[id].state == TakerPaymentState.PaymentSent) {
+            require(
+                block.timestamp >= takerPayments[id].preApproveLockTime,
+                "Current timestamp didn't exceed payment pre-approve lock time"
+            );
+        }
 
         takerPayments[id].state = TakerPaymentState.TakerRefunded;
 
