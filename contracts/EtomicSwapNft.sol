@@ -26,7 +26,7 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
     }
 
     event MakerPaymentSent(bytes32 id);
-    event MakerPaymentSpent(bytes32 id, bytes32 secret);
+    event MakerPaymentSpent(bytes32 id);
     event MakerPaymentRefundedTimelock(bytes32 id);
     event MakerPaymentRefundedSecret(bytes32 id);
 
@@ -42,7 +42,7 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
 
     struct TakerPayment {
         bytes20 paymentHash;
-        uint32 immediateRefundTime;
+        uint32 preApproveLockTime;
         uint32 paymentLockTime;
         TakerPaymentState state;
     }
@@ -58,7 +58,10 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
     address public immutable dexFeeAddress;
 
     constructor(address feeAddress) {
-        require(feeAddress != address(0), "feeAddress must not be zero address");
+        require(
+            feeAddress != address(0),
+            "feeAddress must not be zero address"
+        );
 
         dexFeeAddress = feeAddress;
     }
@@ -71,7 +74,10 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         address tokenAddress,
         uint256 tokenId
     ) external {
-        require(makerPayments[id].state == MakerPaymentState.PaymentSent, "Invalid payment state. Must be PaymentSent");
+        require(
+            makerPayments[id].state == MakerPaymentState.PaymentSent,
+            "Invalid payment state. Must be PaymentSent"
+        );
 
         // Check if the function caller is an externally owned account (EOA)
         require(msg.sender == tx.origin, "Caller must be an EOA");
@@ -86,13 +92,16 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
                 tokenId
             )
         );
-        require(paymentHash == makerPayments[id].paymentHash, "Invalid paymentHash");
+        require(
+            paymentHash == makerPayments[id].paymentHash,
+            "Invalid paymentHash"
+        );
 
         // Effects
         makerPayments[id].state = MakerPaymentState.TakerSpent;
 
         // Event Emission
-        emit MakerPaymentSpent(id, makerSecret);
+        emit MakerPaymentSpent(id);
 
         // Interactions
         IERC721 token = IERC721(tokenAddress);
@@ -108,7 +117,10 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         address tokenAddress,
         uint256 tokenId
     ) external {
-        require(makerPayments[id].state == MakerPaymentState.PaymentSent, "Invalid payment state. Must be PaymentSent");
+        require(
+            makerPayments[id].state == MakerPaymentState.PaymentSent,
+            "Invalid payment state. Must be PaymentSent"
+        );
 
         // Check if the function caller is an externally owned account (EOA)
         require(msg.sender == tx.origin, "Caller must be an EOA");
@@ -124,13 +136,16 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
                 amount
             )
         );
-        require(paymentHash == makerPayments[id].paymentHash, "Invalid paymentHash");
+        require(
+            paymentHash == makerPayments[id].paymentHash,
+            "Invalid paymentHash"
+        );
 
         // Effects
         makerPayments[id].state = MakerPaymentState.TakerSpent;
 
         // Event Emission
-        emit MakerPaymentSpent(id, makerSecret);
+        emit MakerPaymentSpent(id);
 
         // Interactions
         IERC1155 token = IERC1155(tokenAddress);
@@ -306,10 +321,13 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         address receiver,
         bytes32 takerSecretHash,
         bytes32 makerSecretHash,
-        uint32 immediateRefundLockTime,
+        uint32 preApproveLockTime,
         uint32 paymentLockTime
     ) external payable {
-        require(takerPayments[id].state == TakerPaymentState.Uninitialized, "Taker payment is already initialized");
+        require(
+            takerPayments[id].state == TakerPaymentState.Uninitialized,
+            "Taker payment is already initialized"
+        );
         require(receiver != address(0), "Receiver must not be zero address");
         require(msg.value > 0, "ETH value must be greater than zero");
         require(msg.value > dexFee, "ETH value must be greater than dex fee");
@@ -326,7 +344,12 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
             )
         );
 
-        takerPayments[id] = TakerPayment(paymentHash, immediateRefundLockTime, paymentLockTime, TakerPaymentState.PaymentSent);
+        takerPayments[id] = TakerPayment(
+            paymentHash,
+            preApproveLockTime,
+            paymentLockTime,
+            TakerPaymentState.PaymentSent
+        );
 
         emit TakerPaymentSent(id);
     }
@@ -339,10 +362,13 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         address receiver,
         bytes32 takerSecretHash,
         bytes32 makerSecretHash,
-        uint32 immediateRefundLockTime,
+        uint32 preApproveLockTime,
         uint32 paymentLockTime
     ) external {
-        require(takerPayments[id].state == TakerPaymentState.Uninitialized, "ERC20 v2 payment is already initialized");
+        require(
+            takerPayments[id].state == TakerPaymentState.Uninitialized,
+            "ERC20 v2 payment is already initialized"
+        );
         require(amount > 0, "Amount must not be zero");
         require(dexFee > 0, "Dex fee must not be zero");
         require(receiver != address(0), "Receiver must not be zero address");
@@ -359,7 +385,12 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
             )
         );
 
-        takerPayments[id] = TakerPayment(paymentHash, immediateRefundLockTime, paymentLockTime, TakerPaymentState.PaymentSent);
+        takerPayments[id] = TakerPayment(
+            paymentHash,
+            preApproveLockTime,
+            paymentLockTime,
+            TakerPaymentState.PaymentSent
+        );
 
         emit TakerPaymentSent(id);
 
@@ -413,7 +444,10 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         bytes32 makerSecret,
         address tokenAddress
     ) external {
-        require(takerPayments[id].state == TakerPaymentState.TakerApproved, "Invalid payment state. Must be TakerApproved");
+        require(
+            takerPayments[id].state == TakerPaymentState.TakerApproved,
+            "Invalid payment state. Must be TakerApproved"
+        );
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
@@ -426,7 +460,10 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
                 tokenAddress
             )
         );
-        require(paymentHash == takerPayments[id].paymentHash, "Invalid paymentHash");
+        require(
+            paymentHash == takerPayments[id].paymentHash,
+            "Invalid paymentHash"
+        );
 
         takerPayments[id].state = TakerPaymentState.MakerSpent;
 
@@ -452,7 +489,8 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         address tokenAddress
     ) external {
         require(
-            takerPayments[id].state == TakerPaymentState.PaymentSent || takerPayments[id].state == TakerPaymentState.TakerApproved,
+            takerPayments[id].state == TakerPaymentState.PaymentSent ||
+            takerPayments[id].state == TakerPaymentState.TakerApproved,
             "Invalid payment state. Must be PaymentSent or TakerApproved"
         );
 
@@ -473,10 +511,19 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
             "Invalid paymentHash"
         );
 
-        require(
-            block.timestamp >= takerPayments[id].paymentLockTime,
-            "Current timestamp didn't exceed payment refund lock time"
-        );
+        if (takerPayments[id].state == TakerPaymentState.TakerApproved) {
+            require(
+                block.timestamp >= takerPayments[id].paymentLockTime,
+                "Current timestamp didn't exceed payment refund lock time"
+            );
+        }
+
+        if (takerPayments[id].state == TakerPaymentState.PaymentSent) {
+            require(
+                block.timestamp >= takerPayments[id].preApproveLockTime,
+                "Current timestamp didn't exceed payment pre-approve lock time"
+            );
+        }
 
         takerPayments[id].state = TakerPaymentState.TakerRefunded;
 
@@ -555,7 +602,10 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         HTLCParams memory params = abi.decode(data, (HTLCParams));
 
         require(params.taker != address(0), "Taker must not be zero address");
-        require(params.tokenAddress != address(0), "Token must not be zero address");
+        require(
+            params.tokenAddress != address(0),
+            "Token must not be zero address"
+        );
         require(
             msg.sender == params.tokenAddress,
             "Token address does not match sender"
@@ -580,7 +630,11 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
             )
         );
 
-        makerPayments[params.id] = MakerPayment(paymentHash, params.paymentLockTime, MakerPaymentState.PaymentSent);
+        makerPayments[params.id] = MakerPayment(
+            paymentHash,
+            params.paymentLockTime,
+            MakerPaymentState.PaymentSent
+        );
         emit MakerPaymentSent(params.id);
 
         // Return this magic value to confirm receipt of ERC1155 token
@@ -618,7 +672,10 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         HTLCParams memory params = abi.decode(data, (HTLCParams));
 
         require(params.taker != address(0), "Taker must not be zero address");
-        require(params.tokenAddress != address(0), "Token must not be zero address");
+        require(
+            params.tokenAddress != address(0),
+            "Token must not be zero address"
+        );
         require(
             msg.sender == params.tokenAddress,
             "Token address does not match sender"
@@ -631,10 +688,21 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         require(!isContract(params.taker), "Taker cannot be a contract");
 
         bytes20 paymentHash = ripemd160(
-            abi.encodePacked(params.taker, from, params.takerSecretHash, params.makerSecretHash, params.tokenAddress, tokenId)
+            abi.encodePacked(
+                params.taker,
+                from,
+                params.takerSecretHash,
+                params.makerSecretHash,
+                params.tokenAddress,
+                tokenId
+            )
         );
 
-        makerPayments[params.id] = MakerPayment(paymentHash, params.paymentLockTime, MakerPaymentState.PaymentSent);
+        makerPayments[params.id] = MakerPayment(
+            paymentHash,
+            params.paymentLockTime,
+            MakerPaymentState.PaymentSent
+        );
         emit MakerPaymentSent(params.id);
 
         // Return this magic value to confirm receipt of ERC721 token
