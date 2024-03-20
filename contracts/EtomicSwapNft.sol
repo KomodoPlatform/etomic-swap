@@ -659,6 +659,7 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
     {
         return
             interfaceId == type(IERC1155Receiver).interfaceId ||
+            interfaceId == type(IERC721Receiver).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 
