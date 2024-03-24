@@ -7,3 +7,5 @@ services:
     tty: true
     volumes:
       - ./:/usr/src/workspace
+    ports:
+      - "8545:8545"
