@@ -110,12 +110,12 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
 
     function spendErc1155MakerPayment(
         bytes32 id,
-        uint256 amount,
         address maker,
         bytes32 takerSecretHash,
         bytes32 makerSecret,
         address tokenAddress,
-        uint256 tokenId
+        uint256 tokenId,
+        uint256 amount
     ) external {
         require(
             makerPayments[id].state == MakerPaymentState.PaymentSent,
@@ -196,12 +196,12 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
 
     function refundErc1155MakerPaymentTimelock(
         bytes32 id,
-        uint256 amount,
         address taker,
         bytes32 takerSecretHash,
         bytes32 makerSecretHash,
         address tokenAddress,
-        uint256 tokenId
+        uint256 tokenId,
+        uint256 amount
     ) external {
         require(
             makerPayments[id].state == MakerPaymentState.PaymentSent,
@@ -278,12 +278,12 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
 
     function refundErc1155MakerPaymentSecret(
         bytes32 id,
-        uint256 amount,
         address taker,
         bytes32 takerSecret,
         bytes32 makerSecretHash,
         address tokenAddress,
-        uint256 tokenId
+        uint256 tokenId,
+        uint256 amount
     ) external {
         require(
             makerPayments[id].state == MakerPaymentState.PaymentSent,
@@ -601,6 +601,10 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         // Decode the data to extract HTLC parameters
         HTLCParams memory params = abi.decode(data, (HTLCParams));
 
+        require(
+            makerPayments[params.id].state == MakerPaymentState.Uninitialized,
+            "Maker ERC1155 payment must be Uninitialized"
+        );
         require(params.taker != address(0), "Taker must not be zero address");
         require(
             params.tokenAddress != address(0),
@@ -612,10 +616,6 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         );
         require(operator == from, "Operator must be the sender");
         require(value > 0, "Value must be greater than 0");
-        require(
-            makerPayments[params.id].state == MakerPaymentState.Uninitialized,
-            "Maker ERC1155 payment must be Uninitialized"
-        );
         require(!isContract(params.taker), "Taker cannot be a contract");
 
         bytes20 paymentHash = ripemd160(
@@ -672,6 +672,10 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         // Decode the data to extract HTLC parameters
         HTLCParams memory params = abi.decode(data, (HTLCParams));
 
+        require(
+            makerPayments[params.id].state == MakerPaymentState.Uninitialized,
+            "Maker ERC721 payment must be Uninitialized"
+        );
         require(params.taker != address(0), "Taker must not be zero address");
         require(
             params.tokenAddress != address(0),
@@ -682,10 +686,6 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
             "Token address does not match sender"
         );
         require(operator == from, "Operator must be the sender");
-        require(
-            makerPayments[params.id].state == MakerPaymentState.Uninitialized,
-            "Maker ERC721 payment must be Uninitialized"
-        );
         require(!isContract(params.taker), "Taker cannot be a contract");
 
         bytes20 paymentHash = ripemd160(

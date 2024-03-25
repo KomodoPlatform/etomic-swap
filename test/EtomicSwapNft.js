@@ -240,24 +240,24 @@ describe("etomicSwapNft", function() {
 
         const spendParamsInvalidSecret = [
             id,
-            amountToSend,
             accounts[0].address,
             takerSecretHash,
             invalidSecret,
             erc1155token.target,
-            tokenId
+            tokenId,
+            amountToSend
         ];
         // Attempt to spend with invalid secret - should fail
         await takerSwapRunner.spendErc1155MakerPayment(...spendParamsInvalidSecret).should.be.rejectedWith(INVALID_HASH);
 
         const spendParams = [
             id,
-            amountToSend,
             accounts[0].address,
             takerSecretHash,
             makerSecret,
             erc1155token.target,
-            tokenId
+            tokenId,
+            amountToSend
         ];
 
         // should not allow to spend from non-taker address even with valid secret
@@ -344,12 +344,12 @@ describe("etomicSwapNft", function() {
 
         const refundParams = [
             id,
-            amountToSend,
             accounts[1].address,
             takerSecretHash,
             makerSecretHash,
             erc1155token.target,
-            tokenId
+            tokenId,
+            amountToSend
         ];
 
         // Not allow maker to refund if payment was not sent
@@ -369,12 +369,12 @@ describe("etomicSwapNft", function() {
         // Not allow to refund invalid amount
         const invalidAmountParams = [
             id,
-            2,
             accounts[1].address,
             takerSecretHash,
             makerSecretHash,
             erc1155token.target,
-            tokenId
+            tokenId,
+            2
         ];
         await makerSwapRunner.refundErc1155MakerPaymentTimelock(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
 
@@ -449,12 +449,12 @@ describe("etomicSwapNft", function() {
 
         const refundParams = [
             id,
-            amountToSend,
             accounts[1].address,
             takerSecret,
             makerSecretHash,
             erc1155token.target,
-            tokenId
+            tokenId,
+            amountToSend
         ];
 
         // Not allow maker to refund if payment was not sent
@@ -469,12 +469,12 @@ describe("etomicSwapNft", function() {
         // Not allow to refund invalid amount
         const invalidAmountParams = [
             id,
-            2,
             accounts[1].address,
             takerSecret,
             makerSecretHash,
             erc1155token.target,
-            tokenId
+            tokenId,
+            2
         ];
         await makerSwapRunner.refundErc1155MakerPaymentSecret(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
 
