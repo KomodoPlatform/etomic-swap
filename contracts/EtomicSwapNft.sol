@@ -12,6 +12,9 @@ import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
     using SafeERC20 for IERC20;
 
+    bytes4 private constant INTERFACE_ID_ERC721 = 0x80ac58cd;
+    bytes4 private constant INTERFACE_ID_ERC1155 = 0xd9b67a26;
+
     enum MakerPaymentState {
         Uninitialized,
         PaymentSent,
@@ -64,6 +67,66 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
         );
 
         dexFeeAddress = feeAddress;
+    }
+
+    function spendNftMakerPayment(
+        bytes32 id,
+        address maker,
+        bytes32 takerSecretHash,
+        bytes32 makerSecret,
+        address tokenAddress,
+        uint256 tokenId,
+        uint256 amount
+    ) external {
+        require(
+            makerPayments[id].state == MakerPaymentState.PaymentSent,
+            "Invalid payment state. Must be PaymentSent"
+        );
+
+        // Check if the function caller is an externally owned account (EOA)
+        require(msg.sender == tx.origin, "Caller must be an EOA");
+
+        bytes20 paymentHash = ripemd160(
+            abi.encodePacked(
+                msg.sender,
+                maker,
+                takerSecretHash,
+                sha256(abi.encodePacked(makerSecret)),
+                tokenAddress,
+                tokenId,
+                amount
+            )
+        );
+        require(
+            paymentHash == makerPayments[id].paymentHash,
+            "Invalid paymentHash"
+        );
+
+        // Interface checks
+        bool is721 = isERC721(tokenAddress)  && amount == 0;
+        bool is1155 = isERC1155(tokenAddress) && amount > 0;
+        require(is721 || is1155, "Token must be ERC721 or ERC1155");
+
+        // Effects
+        makerPayments[id].state = MakerPaymentState.TakerSpent;
+
+        // Event Emission
+        emit MakerPaymentSpent(id);
+
+        // Interactions
+        if (is721) {
+            IERC721 token = IERC721(tokenAddress);
+            token.safeTransferFrom(address(this), msg.sender, tokenId);
+        } else if (is1155) {
+            IERC1155 token = IERC1155(tokenAddress);
+            token.safeTransferFrom(
+                address(this),
+                msg.sender,
+                tokenId,
+                amount,
+                ""
+            );
+        }
     }
 
     function spendErc721MakerPayment(
@@ -695,7 +758,8 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
                 params.takerSecretHash,
                 params.makerSecretHash,
                 params.tokenAddress,
-                tokenId
+                tokenId,
+                uint256(0)
             )
         );
 
@@ -716,5 +780,15 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
             size := extcodesize(account)
         }
         return size > 0;
+    }
+
+    function isERC721(address tokenAddress) public view returns (bool) {
+        IERC165 tokenContract = IERC165(tokenAddress);
+        return tokenContract.supportsInterface(INTERFACE_ID_ERC721);
+    }
+
+    function isERC1155(address tokenAddress) public view returns (bool) {
+        IERC165 tokenContract = IERC165(tokenAddress);
+        return tokenContract.supportsInterface(INTERFACE_ID_ERC1155);
     }
 }

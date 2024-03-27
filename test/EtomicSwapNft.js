@@ -185,10 +185,11 @@ describe("etomicSwapNft", function() {
             takerSecretHash,
             invalidSecret,
             erc721token.target,
-            tokenId
+            tokenId,
+            0
         ];
         // Attempt to spend with invalid secret - should fail
-        await takerSwapRunner.spendErc721MakerPayment(...spendParamsInvalidSecret).should.be.rejectedWith(INVALID_HASH);
+        await takerSwapRunner.spendNftMakerPayment(...spendParamsInvalidSecret).should.be.rejectedWith(INVALID_HASH);
 
         const spendParams = [
             id,
@@ -196,14 +197,17 @@ describe("etomicSwapNft", function() {
             takerSecretHash,
             makerSecret,
             erc721token.target,
-            tokenId
+            tokenId,
+            0
         ];
 
         // should not allow to spend from non-taker address even with valid secret
-        await etomicSwapNft.connect(accounts[2]).spendErc721MakerPayment(...spendParams).should.be.rejectedWith(INVALID_HASH);
+        await etomicSwapNft.connect(accounts[2]).spendNftMakerPayment(...spendParams).should.be.rejectedWith(INVALID_HASH);
 
         // Successful spend by Taker with valid secret
-        await takerSwapRunner.spendErc721MakerPayment(...spendParams).should.be.fulfilled;
+        const tx = await takerSwapRunner.spendNftMakerPayment(...spendParams).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log("Spend combined ERC721 Gas used:", receipt.gasUsed.toString());
 
         // Check the state of the payment
         const payment = await etomicSwapNft.makerPayments(id);
@@ -214,7 +218,7 @@ describe("etomicSwapNft", function() {
         expect(tokenOwner).to.equal(accounts[1].address);
 
         // should not allow to spend again
-        await takerSwapRunner.spendErc721MakerPayment(...spendParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
+        await takerSwapRunner.spendNftMakerPayment(...spendParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
     })
 
     it('should allow taker to spend ERC1155 maker payment', async function() {
@@ -248,7 +252,7 @@ describe("etomicSwapNft", function() {
             amountToSend
         ];
         // Attempt to spend with invalid secret - should fail
-        await takerSwapRunner.spendErc1155MakerPayment(...spendParamsInvalidSecret).should.be.rejectedWith(INVALID_HASH);
+        await takerSwapRunner.spendNftMakerPayment(...spendParamsInvalidSecret).should.be.rejectedWith(INVALID_HASH);
 
         const spendParams = [
             id,
@@ -261,10 +265,12 @@ describe("etomicSwapNft", function() {
         ];
 
         // should not allow to spend from non-taker address even with valid secret
-        await etomicSwapNft.connect(accounts[2]).spendErc1155MakerPayment(...spendParams).should.be.rejectedWith(INVALID_HASH);
+        await etomicSwapNft.connect(accounts[2]).spendNftMakerPayment(...spendParams).should.be.rejectedWith(INVALID_HASH);
 
         // Successful spend by Taker with valid secret
-        await takerSwapRunner.spendErc1155MakerPayment(...spendParams).should.be.fulfilled;
+        const tx = await takerSwapRunner.spendNftMakerPayment(...spendParams).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log("Spend combined ERC1155 Gas used:", receipt.gasUsed.toString());
 
         // Check the state of the payment
         const payment = await etomicSwapNft.makerPayments(id);
@@ -279,7 +285,7 @@ describe("etomicSwapNft", function() {
         expect(tokenBalance).to.equal(BigInt(0));
 
         // should not allow to spend again
-        await takerSwapRunner.spendErc1155MakerPayment(...spendParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
+        await takerSwapRunner.spendNftMakerPayment(...spendParams).should.be.rejectedWith(INVALID_PAYMENT_STATE_SENT);
     });
 
     it('should allow maker to refund ERC721 payment after locktime', async function() {
