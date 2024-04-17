@@ -5,7 +5,6 @@ const {
     ethers
 } = require("hardhat");
 const crypto = require('crypto');
-const RIPEMD160 = require('ripemd160');
 const {AbiCoder} = require("ethers");
 
 require('chai')
