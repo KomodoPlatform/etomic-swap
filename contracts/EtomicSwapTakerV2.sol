@@ -33,7 +33,10 @@ contract EtomicSwapTakerV2 {
     address public immutable dexFeeAddress;
 
     constructor(address feeAddress) {
-        require(feeAddress != address(0), "feeAddress must not be zero address");
+        require(
+            feeAddress != address(0),
+            "feeAddress must not be zero address"
+        );
 
         dexFeeAddress = feeAddress;
     }
@@ -47,7 +50,10 @@ contract EtomicSwapTakerV2 {
         uint32 preApproveLockTime,
         uint32 paymentLockTime
     ) external payable {
-        require(takerPayments[id].state == TakerPaymentState.Uninitialized, "Taker payment is already initialized");
+        require(
+            takerPayments[id].state == TakerPaymentState.Uninitialized,
+            "Taker payment is already initialized"
+        );
         require(receiver != address(0), "Receiver must not be zero address");
         require(msg.value > 0, "ETH value must be greater than zero");
         require(msg.value > dexFee, "ETH value must be greater than dex fee");
@@ -64,7 +70,12 @@ contract EtomicSwapTakerV2 {
             )
         );
 
-        takerPayments[id] = TakerPayment(paymentHash, preApproveLockTime, paymentLockTime, TakerPaymentState.PaymentSent);
+        takerPayments[id] = TakerPayment(
+            paymentHash,
+            preApproveLockTime,
+            paymentLockTime,
+            TakerPaymentState.PaymentSent
+        );
 
         emit TakerPaymentSent(id);
     }
@@ -80,7 +91,10 @@ contract EtomicSwapTakerV2 {
         uint32 preApproveLockTime,
         uint32 paymentLockTime
     ) external {
-        require(takerPayments[id].state == TakerPaymentState.Uninitialized, "ERC20 v2 payment is already initialized");
+        require(
+            takerPayments[id].state == TakerPaymentState.Uninitialized,
+            "ERC20 v2 payment is already initialized"
+        );
         require(amount > 0, "Amount must not be zero");
         require(dexFee > 0, "Dex fee must not be zero");
         require(receiver != address(0), "Receiver must not be zero address");
@@ -97,7 +111,12 @@ contract EtomicSwapTakerV2 {
             )
         );
 
-        takerPayments[id] = TakerPayment(paymentHash, preApproveLockTime, paymentLockTime, TakerPaymentState.PaymentSent);
+        takerPayments[id] = TakerPayment(
+            paymentHash,
+            preApproveLockTime,
+            paymentLockTime,
+            TakerPaymentState.PaymentSent
+        );
 
         emit TakerPaymentSent(id);
 
@@ -151,7 +170,10 @@ contract EtomicSwapTakerV2 {
         bytes32 makerSecret,
         address tokenAddress
     ) external {
-        require(takerPayments[id].state == TakerPaymentState.TakerApproved, "Invalid payment state. Must be TakerApproved");
+        require(
+            takerPayments[id].state == TakerPaymentState.TakerApproved,
+            "Invalid payment state. Must be TakerApproved"
+        );
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
@@ -164,7 +186,10 @@ contract EtomicSwapTakerV2 {
                 tokenAddress
             )
         );
-        require(paymentHash == takerPayments[id].paymentHash, "Invalid paymentHash");
+        require(
+            paymentHash == takerPayments[id].paymentHash,
+            "Invalid paymentHash"
+        );
 
         takerPayments[id].state = TakerPaymentState.MakerSpent;
 
@@ -190,7 +215,8 @@ contract EtomicSwapTakerV2 {
         address tokenAddress
     ) external {
         require(
-            takerPayments[id].state == TakerPaymentState.PaymentSent || takerPayments[id].state == TakerPaymentState.TakerApproved,
+            takerPayments[id].state == TakerPaymentState.PaymentSent ||
+                takerPayments[id].state == TakerPaymentState.TakerApproved,
             "Invalid payment state. Must be PaymentSent or TakerApproved"
         );
 

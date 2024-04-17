@@ -490,7 +490,7 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
     ) external {
         require(
             takerPayments[id].state == TakerPaymentState.PaymentSent ||
-            takerPayments[id].state == TakerPaymentState.TakerApproved,
+                takerPayments[id].state == TakerPaymentState.TakerApproved,
             "Invalid payment state. Must be PaymentSent or TakerApproved"
         );
 
@@ -652,10 +652,10 @@ contract EtomicSwapNft is ERC165, IERC1155Receiver, IERC721Receiver {
     }
 
     function supportsInterface(bytes4 interfaceId)
-    public
-    view
-    override(ERC165, IERC165)
-    returns (bool)
+        public
+        view
+        override(ERC165, IERC165)
+        returns (bool)
     {
         return
             interfaceId == type(IERC1155Receiver).interfaceId ||

@@ -7,9 +7,7 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
-
 contract EtomicSwapMakerNftV2 is ERC165, IERC1155Receiver, IERC721Receiver {
-
     enum MakerPaymentState {
         Uninitialized,
         PaymentSent,
@@ -29,6 +27,8 @@ contract EtomicSwapMakerNftV2 is ERC165, IERC1155Receiver, IERC721Receiver {
     event MakerPaymentRefundedSecret(bytes32 id);
 
     mapping(bytes32 => MakerPayment) public makerPayments;
+
+    constructor() {}
 
     function spendErc721MakerPayment(
         bytes32 id,
@@ -349,10 +349,10 @@ contract EtomicSwapMakerNftV2 is ERC165, IERC1155Receiver, IERC721Receiver {
     }
 
     function supportsInterface(bytes4 interfaceId)
-    public
-    view
-    override(ERC165, IERC165)
-    returns (bool)
+        public
+        view
+        override(ERC165, IERC165)
+        returns (bool)
     {
         return
             interfaceId == type(IERC1155Receiver).interfaceId ||
