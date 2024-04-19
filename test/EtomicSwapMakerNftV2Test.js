@@ -91,7 +91,9 @@ describe("EtomicSwapMakerNftV2", function() {
 
         // Make the Maker ERC721 payment. Call safeTransferFrom directly to transfer the token to the etomicSwapMakerNftV2 contract.
         // Explicitly specify the method signature.
-        await makerErc721Runner0['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwapMakerNftV2.target, tokenId, data).should.be.fulfilled;
+        const tx = await makerErc721Runner0['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwapMakerNftV2.target, tokenId, data).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log(`Gas Used: ${receipt.gasUsed.toString()}`);
 
         // Check the payment lockTime and state
         const payment = await etomicSwapMakerNftV2.makerPayments(id);
@@ -117,7 +119,9 @@ describe("EtomicSwapMakerNftV2", function() {
         const makerErc1155Runner0 = erc1155token.connect(accounts[0]);
 
         // Make the Maker ERC1155 payment. Call safeTransferFrom directly to transfer the token to the etomicSwapMakerNftV2 contract.
-        await makerErc1155Runner0.safeTransferFrom(accounts[0].address, etomicSwapMakerNftV2.target, tokenId, amountToSend, data).should.be.fulfilled;
+        const tx = await makerErc1155Runner0.safeTransferFrom(accounts[0].address, etomicSwapMakerNftV2.target, tokenId, amountToSend, data).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log(`Gas Used: ${receipt.gasUsed.toString()}`);
 
         // Check the payment lockTime and state
         const payment = await etomicSwapMakerNftV2.makerPayments(id);
