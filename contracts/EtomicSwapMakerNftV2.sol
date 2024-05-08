@@ -28,8 +28,6 @@ contract EtomicSwapMakerNftV2 is ERC165, IERC1155Receiver, IERC721Receiver {
 
     mapping(bytes32 => MakerPayment) public makerPayments;
 
-    constructor() {}
-
     function spendErc721MakerPayment(
         bytes32 id,
         address maker,
