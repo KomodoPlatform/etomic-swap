@@ -59,19 +59,19 @@ describe("EtomicSwap", function() {
 
         EtomicSwap = await ethers.getContractFactory("EtomicSwap");
         etomicSwap = await EtomicSwap.deploy();
-        etomicSwap.waitForDeployment();
+        await etomicSwap.waitForDeployment();
 
         Token = await ethers.getContractFactory("Token");
         token = await Token.deploy();
-        token.waitForDeployment();
+        await token.waitForDeployment();
 
         Erc721Token = await ethers.getContractFactory("Erc721Token");
         erc721token = await Erc721Token.deploy("MyNFT", "MNFT");
-        erc721token.waitForDeployment();
+        await erc721token.waitForDeployment();
 
         Erc1155Token = await ethers.getContractFactory("Erc1155Token");
         erc1155token = await Erc1155Token.deploy("uri");
-        erc1155token.waitForDeployment();
+        await erc1155token.waitForDeployment();
 
         await token.transfer(accounts[1].address, ethers.parseEther('100'));
     });
