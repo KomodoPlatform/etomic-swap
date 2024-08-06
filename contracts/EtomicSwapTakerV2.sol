@@ -41,6 +41,7 @@ contract EtomicSwapTakerV2 {
         dexFeeAddress = feeAddress;
     }
 
+    // func signature 0x9b4603f2
     function ethTakerPayment(
         bytes32 id,
         uint256 dexFee,
@@ -80,6 +81,7 @@ contract EtomicSwapTakerV2 {
         emit TakerPaymentSent(id);
     }
 
+    // func signature 0xd6a71eb4
     function erc20TakerPayment(
         bytes32 id,
         uint256 amount,
@@ -125,6 +127,7 @@ contract EtomicSwapTakerV2 {
         token.safeTransferFrom(msg.sender, address(this), amount + dexFee);
     }
 
+    // func signature is 0x146e5b24
     function takerPaymentApprove(
         bytes32 id,
         uint256 amount,
@@ -161,6 +164,7 @@ contract EtomicSwapTakerV2 {
         emit TakerPaymentApproved(id);
     }
 
+    // func signature 0xcc90c199
     function spendTakerPayment(
         bytes32 id,
         uint256 amount,
@@ -205,6 +209,7 @@ contract EtomicSwapTakerV2 {
         }
     }
 
+    // func signature 0x65e26617
     function refundTakerPaymentTimelock(
         bytes32 id,
         uint256 amount,
@@ -264,6 +269,7 @@ contract EtomicSwapTakerV2 {
         }
     }
 
+    // func signature 0x3e6af5f2
     function refundTakerPaymentSecret(
         bytes32 id,
         uint256 amount,
