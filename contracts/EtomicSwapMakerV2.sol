@@ -27,6 +27,7 @@ contract EtomicSwapMakerV2 {
 
     mapping(bytes32 => MakerPayment) public makerPayments;
 
+    // 0x7466be60
     function ethMakerPayment(
         bytes32 id,
         address taker,
@@ -61,6 +62,7 @@ contract EtomicSwapMakerV2 {
         emit MakerPaymentSent(id);
     }
 
+    // 0xa53bc126
     function erc20MakerPayment(
         bytes32 id,
         uint256 amount,
@@ -101,6 +103,7 @@ contract EtomicSwapMakerV2 {
         token.safeTransferFrom(msg.sender, address(this), amount);
     }
 
+    // 0x1299a27a
     function spendMakerPayment(
         bytes32 id,
         uint256 amount,
@@ -141,6 +144,7 @@ contract EtomicSwapMakerV2 {
         }
     }
 
+    // 0x9b949dee
     function refundMakerPaymentTimelock(
         bytes32 id,
         uint256 amount,
@@ -187,6 +191,7 @@ contract EtomicSwapMakerV2 {
         }
     }
 
+    // 0x74a4788a
     function refundMakerPaymentSecret(
         bytes32 id,
         uint256 amount,
