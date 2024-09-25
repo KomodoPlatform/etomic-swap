@@ -57,6 +57,10 @@ describe("EtomicSwapMakerV2", function() {
         etomicSwapMakerV2 = await EtomicSwapMakerV2.deploy();
         await etomicSwapMakerV2.waitForDeployment();
 
+        EtomicSwapMakerV2EthConst = await ethers.getContractFactory("EtomicSwapMakerV2EthConst");
+        etomicSwapMakerV2EThConst = await EtomicSwapMakerV2EthConst.deploy();
+        await etomicSwapMakerV2EThConst.waitForDeployment();
+
         Token = await ethers.getContractFactory("Token");
         token = await Token.deploy();
         await token.waitForDeployment();
@@ -81,9 +85,22 @@ describe("EtomicSwapMakerV2", function() {
         ];
 
         // Make the ETH payment
-        await etomicSwapMakerV2.connect(accounts[0]).ethMakerPayment(...params, {
+        const tx = await etomicSwapMakerV2.connect(accounts[0]).ethMakerPayment(...params, {
             value: ethers.parseEther('1')
         }).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log(`ETH ethMakerPayment Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
+
+        // Make test ETH payment to EtomicSwapMakerV2EthConst which uses ETH_PLACEHOLDER_ADDRESS 
+        const tx_eth_const = await etomicSwapMakerV2EThConst.connect(accounts[0]).ethMakerPayment(...params, {
+            value: ethers.parseEther('1')
+        }).should.be.fulfilled;
+        const receipt_eth_const = await tx_eth_const.wait();
+        console.log(`ETH ethMakerPayment to contract with ETH_PLACEHOLDER_ADDRESS Gas Used: ${receipt_eth_const.gasUsed.toString()}`);
+        console.log(`ETH_PLACEHOLDER_ADDRESS Gas Limit: ${tx_eth_const.gasLimit.toString()}`);
+        console.log(`ETH_PLACEHOLDER_ADDRESS Gas Price: ${tx_eth_const.gasPrice.toString()}`);
 
         const payment = await etomicSwapMakerV2.makerPayments(id);
 
@@ -115,7 +132,11 @@ describe("EtomicSwapMakerV2", function() {
 
         await token.approve(etomicSwapMakerV2.target, ethers.parseEther('1'));
         // Make the ERC20 payment
-        await etomicSwapRunner0.erc20MakerPayment(...payment_params).should.be.fulfilled;
+        const tx = await etomicSwapRunner0.erc20MakerPayment(...payment_params).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log(`ERC20 erc20MakerPayment Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
 
         // Check contract token balance
         const balance = await token.balanceOf(etomicSwapMakerV2.target);
@@ -193,6 +214,10 @@ describe("EtomicSwapMakerV2", function() {
         const gasUsed = ethers.parseUnits(spendReceipt.gasUsed.toString(), 'wei');
         const txFee = gasUsed * gasPrice;
 
+        console.log(`ETH spendMakerPayment Gas Used: ${spendReceipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${spendTx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${spendTx.gasPrice.toString()}`);
+
         const balanceAfter = await ethers.provider.getBalance(accounts[1].address);
         // Check sender balance
         expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('1'));
@@ -263,9 +288,13 @@ describe("EtomicSwapMakerV2", function() {
         const balanceBefore = await token.balanceOf(accounts[1].address);
 
         const gasPrice = ethers.parseUnits('100', 'gwei');
-        await takerSwapRunner.spendMakerPayment(...spendParams, {
+        const tx = await takerSwapRunner.spendMakerPayment(...spendParams, {
             gasPrice
         }).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log(`ERC20 spendMakerPayment Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
 
         const balanceAfter = await token.balanceOf(accounts[1].address);
         // Check taker balance
@@ -342,6 +371,10 @@ describe("EtomicSwapMakerV2", function() {
         const gasUsed = ethers.parseUnits(receipt.gasUsed.toString(), 'wei');
         const txFee = gasUsed * gasPrice;
 
+        console.log(`ETH refundMakerPaymentTimelock Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
+
         const balanceAfter = await ethers.provider.getBalance(accounts[0].address);
         // Check sender balance
         expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('1'));
@@ -404,7 +437,11 @@ describe("EtomicSwapMakerV2", function() {
         // Success refund
         const balanceBefore = await token.balanceOf(accounts[0].address);
 
-        await etomicSwapRunner0.refundMakerPaymentTimelock(...refundParams).should.be.fulfilled;
+        const tx = await etomicSwapRunner0.refundMakerPaymentTimelock(...refundParams).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log(`ERC20 refundMakerPaymentTimelock Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
 
         const balanceAfter = await token.balanceOf(accounts[0].address);
 
@@ -476,6 +513,10 @@ describe("EtomicSwapMakerV2", function() {
         const gasUsed = ethers.parseUnits(receipt.gasUsed.toString(), 'wei');
         const txFee = gasUsed * gasPrice;
 
+        console.log(`ETH refundMakerPaymentSecret Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
+
         const balanceAfter = await ethers.provider.getBalance(accounts[0].address);
         // Check sender balance
         expect((balanceAfter - balanceBefore + txFee)).to.equal(ethers.parseEther('1'));
@@ -534,7 +575,11 @@ describe("EtomicSwapMakerV2", function() {
         // Success refund
         const balanceBefore = await token.balanceOf(accounts[0].address);
 
-        await etomicSwapRunner0.refundMakerPaymentSecret(...refundParams).should.be.fulfilled;
+        const tx = await etomicSwapRunner0.refundMakerPaymentSecret(...refundParams).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log(`ERC20 refundMakerPaymentSecret Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
 
         const balanceAfter = await token.balanceOf(accounts[0].address);
 

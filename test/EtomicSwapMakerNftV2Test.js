@@ -93,7 +93,9 @@ describe("EtomicSwapMakerNftV2", function() {
         // Explicitly specify the method signature.
         const tx = await makerErc721Runner0['safeTransferFrom(address,address,uint256,bytes)'](accounts[0].address, etomicSwapMakerNftV2.target, tokenId, data).should.be.fulfilled;
         const receipt = await tx.wait();
-        console.log(`Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`ERC721 safeTransferFrom Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
 
         // Check the payment lockTime and state
         const payment = await etomicSwapMakerNftV2.makerPayments(id);
@@ -121,7 +123,9 @@ describe("EtomicSwapMakerNftV2", function() {
         // Make the Maker ERC1155 payment. Call safeTransferFrom directly to transfer the token to the etomicSwapMakerNftV2 contract.
         const tx = await makerErc1155Runner0.safeTransferFrom(accounts[0].address, etomicSwapMakerNftV2.target, tokenId, amountToSend, data).should.be.fulfilled;
         const receipt = await tx.wait();
-        console.log(`Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`ERC1155 safeTransferFrom Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
 
         // Check the payment lockTime and state
         const payment = await etomicSwapMakerNftV2.makerPayments(id);
@@ -197,7 +201,11 @@ describe("EtomicSwapMakerNftV2", function() {
         await etomicSwapMakerNftV2.connect(accounts[2]).spendErc721MakerPayment(...spendParams).should.be.rejectedWith(INVALID_HASH);
 
         // Successful spend by Taker with valid secret
-        await takerSwapRunner.spendErc721MakerPayment(...spendParams).should.be.fulfilled;
+        const tx = await takerSwapRunner.spendErc721MakerPayment(...spendParams).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log(`ERC721 spendErc721MakerPayment Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
 
         // Check the state of the payment
         const payment = await etomicSwapMakerNftV2.makerPayments(id);
@@ -258,7 +266,11 @@ describe("EtomicSwapMakerNftV2", function() {
         await etomicSwapMakerNftV2.connect(accounts[2]).spendErc1155MakerPayment(...spendParams).should.be.rejectedWith(INVALID_HASH);
 
         // Successful spend by Taker with valid secret
-        await takerSwapRunner.spendErc1155MakerPayment(...spendParams).should.be.fulfilled;
+        const tx = await takerSwapRunner.spendErc1155MakerPayment(...spendParams).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log(`ERC1155 spendErc1155MakerPayment Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
 
         // Check the state of the payment
         const payment = await etomicSwapMakerNftV2.makerPayments(id);
@@ -313,7 +325,11 @@ describe("EtomicSwapMakerNftV2", function() {
         await etomicSwapMakerNftV2.connect(accounts[1]).refundErc721MakerPaymentTimelock(...refundParams).should.be.rejectedWith(INVALID_HASH);
 
         // Successful refund by maker after locktime
-        await makerSwapRunner.refundErc721MakerPaymentTimelock(...refundParams).should.be.fulfilled;
+        const tx = await makerSwapRunner.refundErc721MakerPaymentTimelock(...refundParams).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log(`ERC721 refundErc721MakerPaymentTimelock Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
 
         // Check the state of the payment
         const payment = await etomicSwapMakerNftV2.makerPayments(id);
@@ -373,7 +389,11 @@ describe("EtomicSwapMakerNftV2", function() {
         await makerSwapRunner.refundErc1155MakerPaymentTimelock(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
 
         // Successful refund by maker after locktime
-        await makerSwapRunner.refundErc1155MakerPaymentTimelock(...refundParams).should.be.fulfilled;
+        const tx = await makerSwapRunner.refundErc1155MakerPaymentTimelock(...refundParams).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log(`ERC1155 refundErc1155MakerPaymentTimelock Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
 
         // Check the state of the payment
         const payment = await etomicSwapMakerNftV2.makerPayments(id);
@@ -418,7 +438,11 @@ describe("EtomicSwapMakerNftV2", function() {
         await etomicSwapMakerNftV2.connect(accounts[1]).refundErc721MakerPaymentSecret(...refundParams).should.be.rejectedWith(INVALID_HASH);
 
         // Successful refund by maker using taker secret
-        await makerSwapRunner.refundErc721MakerPaymentSecret(...refundParams).should.be.fulfilled;
+        const tx = await makerSwapRunner.refundErc721MakerPaymentSecret(...refundParams).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log(`ERC721 refundErc721MakerPaymentSecret Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
 
         // Check the state of the payment
         const payment = await etomicSwapMakerNftV2.makerPayments(id);
@@ -473,7 +497,11 @@ describe("EtomicSwapMakerNftV2", function() {
         await makerSwapRunner.refundErc1155MakerPaymentSecret(...invalidAmountParams).should.be.rejectedWith(INVALID_HASH);
 
         // Success refund
-        await makerSwapRunner.refundErc1155MakerPaymentSecret(...refundParams).should.be.fulfilled;
+        const tx = await makerSwapRunner.refundErc1155MakerPaymentSecret(...refundParams).should.be.fulfilled;
+        const receipt = await tx.wait();
+        console.log(`ERC1155 refundErc1155MakerPaymentSecret Gas Used: ${receipt.gasUsed.toString()}`);
+        console.log(`Gas Limit: ${tx.gasLimit.toString()}`);
+        console.log(`Gas Price: ${tx.gasPrice.toString()}`);
 
         // Successful refund by maker using taker secret
         const payment = await etomicSwapMakerNftV2.makerPayments(id);
