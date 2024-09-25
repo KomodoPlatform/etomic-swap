@@ -7,7 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 contract EtomicSwapTakerV2EthConst {
     using SafeERC20 for IERC20;
 
-    address constant ETH_PLACEHOLDER_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address constant ETH_PLACEHOLDER_ADDRESS =
+        0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     enum TakerPaymentState {
         Uninitialized,
