@@ -105,13 +105,9 @@ contract EtomicSwapTakerV2Counter {
             "ERC20 v2 payment is already initialized"
         );
         require(amount > 0, "Amount must not be zero");
-        require(
-            dexFee > 0 && burnFee > 0,
-            "Dex fee and burn fee must not be zero"
-        );
-        require(receiver != address(0), "Receiver must not be zero address");
-
         uint256 totalFee = dexFee + burnFee;
+        require(totalFee > 0, "totalFee must not be zero");
+        require(receiver != address(0), "Receiver must not be zero address");
 
         bytes20 paymentHash = ripemd160(
             abi.encodePacked(
