@@ -1,10 +1,19 @@
 // SPDX-License-Identifier: MIT
 
+/*
+The EtomicSwapTakerV2BurnFee contract stores the `burnFee` value for each `TakerPayment` in the `takerPayments` mapping. 
+Unlike other variants, this contract does not maintain a cumulative `totalBurnFeeCounter` nor does it automatically 
+withdraw the `burnFee` to a designated burn address.
+
+The purpose of this contract is to make individual `burnFee` amounts publicly accessible within each `TakerPayment`, 
+allowing external systems or users to calculate the total burn fees on swap smart contract address if needed.
+*/
+
 pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract EtomicSwapTakerV2Counter {
+contract EtomicSwapTakerV2BurnFee {
     using SafeERC20 for IERC20;
 
     enum TakerPaymentState {
@@ -33,9 +42,6 @@ contract EtomicSwapTakerV2Counter {
 
     address public immutable dexFeeAddress;
 
-    // Initialize the totalBurnFeeCounter to 0
-    uint256 public totalBurnFeeCounter;
-
     constructor(address feeAddress) {
         require(
             feeAddress != address(0),
@@ -43,7 +49,6 @@ contract EtomicSwapTakerV2Counter {
         );
 
         dexFeeAddress = feeAddress;
-        totalBurnFeeCounter = 0; // Ensure it's 0 when deployed
     }
 
     function ethTakerPayment(
@@ -210,8 +215,6 @@ contract EtomicSwapTakerV2Counter {
         takerPayments[id].state = TakerPaymentState.MakerSpent;
 
         emit TakerPaymentSpent(id, makerSecret);
-
-        totalBurnFeeCounter += burnFee;
 
         if (tokenAddress == address(0)) {
             payable(msg.sender).transfer(amount);

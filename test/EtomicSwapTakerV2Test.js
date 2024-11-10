@@ -155,9 +155,15 @@ describe("EtomicSwapTakerV2", function() {
             paymentLockTime
         ];
         // Make the ETH payment
-        await etomicSwapTakerV2.connect(accounts[0]).ethTakerPayment(...payment_params, {
+        const ethTakerPaymentTx = await etomicSwapTakerV2.connect(accounts[0]).ethTakerPayment(...payment_params, {
             value: ethers.parseEther('1')
         }).should.be.fulfilled;
+
+        const ethTakerPaymentReceipt = await ethTakerPaymentTx.wait();
+		console.log(
+			"Gas used for ethTakerPayment:",
+			ethTakerPaymentReceipt.gasUsed.toString()
+		);
 
         const spendParams = [
             id,
@@ -221,6 +227,7 @@ describe("EtomicSwapTakerV2", function() {
 
         const spendReceipt = await spendTx.wait();
         const gasUsed = ethers.parseUnits(spendReceipt.gasUsed.toString(), 'wei');
+        console.log("Gas used for ETH spendTakerPayment:", gasUsed.toString());
         const txFee = gasUsed * gasPrice;
 
         const balanceAfter = await ethers.provider.getBalance(accounts[1].address);
@@ -256,7 +263,13 @@ describe("EtomicSwapTakerV2", function() {
 
         // Make the ERC20 payment
         await token.approve(etomicSwapTakerV2.target, ethers.parseEther('1'));
-        await etomicSwapTakerV2.connect(accounts[0]).erc20TakerPayment(...payment_params).should.be.fulfilled;
+        const ethTakerPaymentTx = await etomicSwapTakerV2.connect(accounts[0]).erc20TakerPayment(...payment_params).should.be.fulfilled;
+
+        const ethTakerPaymentReceipt = await ethTakerPaymentTx.wait();
+		console.log(
+			"Gas used for erc20TakerPayment:",
+			ethTakerPaymentReceipt.gasUsed.toString()
+		);
 
         const contractBalance = await token.balanceOf(etomicSwapTakerV2.target);
         expect(contractBalance).to.equal(ethers.parseEther('1'));
@@ -317,9 +330,15 @@ describe("EtomicSwapTakerV2", function() {
         const balanceBefore = await token.balanceOf(accounts[1].address);
 
         const gasPrice = ethers.parseUnits('100', 'gwei');
-        await etomicSwapTakerV2.connect(accounts[1]).spendTakerPayment(...spendParams, {
+        const spendTx = await etomicSwapTakerV2.connect(accounts[1]).spendTakerPayment(...spendParams, {
             gasPrice
         }).should.be.fulfilled;
+
+        const spendReceipt = await spendTx.wait();
+		console.log(
+			"Gas used for ERC20 spendTakerPayment:",
+			spendReceipt.gasUsed.toString()
+		);
 
         const balanceAfter = await token.balanceOf(accounts[1].address);
         // Check receiver balance
