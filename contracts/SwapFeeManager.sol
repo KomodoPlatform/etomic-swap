@@ -8,7 +8,6 @@ contract SwapFeeManager {
     address public immutable burnFeeWallet;
 
     event FeesSplit(uint256 dexFeeAmount, uint256 burnFeeAmount);
-    event Received(address sender, uint256 amount);
 
     constructor(address _dexFeeWallet, address _burnFeeWallet) {
         require(
@@ -25,9 +24,7 @@ contract SwapFeeManager {
     }
 
     // Function to receive Ether
-    receive() external payable {
-        emit Received(msg.sender, msg.value);
-    }
+    receive() external payable {}
 
     /**
      * @dev Splits the Ether balance in the contract into 75% for dexFeeWallet and 25% for burnFeeWallet.
