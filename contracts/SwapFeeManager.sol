@@ -2,9 +2,12 @@
 
 pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract SwapFeeManager is Ownable {
+    using SafeERC20 for IERC20;
+
     address public immutable dexFeeWallet;
     address public immutable burnFeeWallet;
 
@@ -62,7 +65,7 @@ contract SwapFeeManager is Ownable {
 
         emit FeesSplit(dexFeeAmount, burnFeeAmount);
 
-        token.transfer(dexFeeWallet, dexFeeAmount);
-        token.transfer(burnFeeWallet, burnFeeAmount);
+        token.safeTransfer(dexFeeWallet, dexFeeAmount);
+        token.safeTransfer(burnFeeWallet, burnFeeAmount);
     }
 }
