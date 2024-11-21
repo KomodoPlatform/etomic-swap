@@ -2,14 +2,18 @@
 
 pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract SwapFeeManager {
+contract SwapFeeManager is Ownable {
     address public immutable dexFeeWallet;
     address public immutable burnFeeWallet;
 
     event FeesSplit(uint256 dexFeeAmount, uint256 burnFeeAmount);
 
-    constructor(address _dexFeeWallet, address _burnFeeWallet) {
+    constructor(
+        address _dexFeeWallet,
+        address _burnFeeWallet
+    ) Ownable(_msgSender()) {
         require(
             _dexFeeWallet != address(0),
             "dexFeeWallet must not be zero address"
@@ -29,7 +33,7 @@ contract SwapFeeManager {
     /**
      * @dev Splits the Ether balance in the contract into 75% for dexFeeWallet and 25% for burnFeeWallet.
      */
-    function splitAndWithdraw() external {
+    function splitAndWithdraw() external onlyOwner {
         uint256 totalBalance = address(this).balance;
         require(totalBalance > 0, "No fees to split");
 
@@ -46,7 +50,7 @@ contract SwapFeeManager {
      * @dev Splits and withdraws ERC20 token balance.
      * @param tokenAddress Address of the ERC20 token.
      */
-    function splitAndWithdrawToken(address tokenAddress) external {
+    function splitAndWithdrawToken(address tokenAddress) external onlyOwner {
         require(tokenAddress != address(0), "Token address must not be zero");
         IERC20 token = IERC20(tokenAddress);
 
