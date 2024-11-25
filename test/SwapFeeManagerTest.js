@@ -4,7 +4,13 @@ require('chai').use(require('chai-as-promised')).should();
 
 describe("SwapFeeManager", function () {
     beforeEach(async function () {
+        // Resets the Hardhat Network to its initial state
+        await network.provider.send("hardhat_reset");
         accounts = await ethers.getSigners();
+
+        // Set balances for dexFeeWallet and burnFeeWallet to 0
+        await network.provider.send("hardhat_setBalance", [accounts[2].address, "0x0"]);
+        await network.provider.send("hardhat_setBalance", [accounts[3].address, "0x0"]);
 
         SwapFeeManager = await ethers.getContractFactory("SwapFeeManager");
         swapFeeManager = await SwapFeeManager.deploy(
@@ -30,18 +36,15 @@ describe("SwapFeeManager", function () {
         const managerBalance = await ethers.provider.getBalance(swapFeeManager.target);
         expect(managerBalance).to.equal(ethers.parseEther("1"));
 
-        const initialDexFeeBalance = await ethers.provider.getBalance(accounts[2].address);
-        const initialBurnFeeBalance = await ethers.provider.getBalance(accounts[3].address);
-
         await swapFeeManager.connect(accounts[0]).splitAndWithdraw().should.be.fulfilled;
 
-        const finalDexFeeBalance = await ethers.provider.getBalance(accounts[2].address);
-        const finalBurnFeeBalance = await ethers.provider.getBalance(accounts[3].address);
+        const dexFeeBalance = await ethers.provider.getBalance(accounts[2].address);
+        const burnFeeBalance = await ethers.provider.getBalance(accounts[3].address);
 
-        expect(finalDexFeeBalance - initialDexFeeBalance).to.equal(ethers.parseEther("0.75"));
-        expect(finalBurnFeeBalance - initialBurnFeeBalance).to.equal(ethers.parseEther("0.25"));
+        expect(dexFeeBalance).to.equal(ethers.parseEther("0.75"));
+        expect(burnFeeBalance).to.equal(ethers.parseEther("0.25"));
 
-        // Ensure the contract's Ether balance is now zero
+        // Ensure the fee manager contract's Ether balance is now zero
         const managerBalanceAfter = await ethers.provider.getBalance(swapFeeManager.target);
         expect(managerBalanceAfter).to.equal(ethers.parseEther("0"));
     });
@@ -54,19 +57,15 @@ describe("SwapFeeManager", function () {
         const managerTokenBalance = await token.balanceOf(swapFeeManager.target);
         expect(managerTokenBalance).to.equal(ethers.parseEther("1"));
 
-        const initialDexFeeTokenBalance = await token.balanceOf(accounts[2].address);
-        const initialBurnFeeTokenBalance = await token.balanceOf(accounts[3].address);
-
         await swapFeeManager.connect(accounts[0]).splitAndWithdrawToken(token.target).should.be.fulfilled;
 
-        const finalDexFeeTokenBalance = await token.balanceOf(accounts[2].address);
-        const finalBurnFeeTokenBalance = await token.balanceOf(accounts[3].address);
+        const dexFeeTokenBalance = await token.balanceOf(accounts[2].address);
+        const burnFeeTokenBalance = await token.balanceOf(accounts[3].address);
 
-        // Check balances of dexFeeWallet and burnFeeWallet for tokens
-        expect(finalDexFeeTokenBalance - initialDexFeeTokenBalance).to.equal(ethers.parseEther("0.75"));
-        expect(finalBurnFeeTokenBalance - initialBurnFeeTokenBalance).to.equal(ethers.parseEther("0.25"));
+        expect(dexFeeTokenBalance).to.equal(ethers.parseEther("0.75"));
+        expect(burnFeeTokenBalance).to.equal(ethers.parseEther("0.25"));
 
-        // Ensure the contract's token balance is now zero
+        // Ensure the fee manager contract's token balance is now zero
         const managerTokenBalanceAfter = await token.balanceOf(swapFeeManager.target);
         expect(managerTokenBalanceAfter).to.equal(ethers.parseEther("0"));
     });

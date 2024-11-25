@@ -11,6 +11,9 @@ contract SwapFeeManager is Ownable {
     address public immutable dexFeeWallet;
     address public immutable burnFeeWallet;
 
+    uint256 private constant BURN_FEE_PERCENT = 25;
+    uint256 private constant TOTAL_PERCENT = 100;
+
     event FeesSplit(uint256 dexFeeAmount, uint256 burnFeeAmount);
 
     constructor(
@@ -40,7 +43,8 @@ contract SwapFeeManager is Ownable {
         uint256 totalBalance = address(this).balance;
         require(totalBalance > 0, "No fees to split");
 
-        uint256 burnFeeAmount = (totalBalance * 25) / 100;
+        uint256 burnFeeAmount = (totalBalance * BURN_FEE_PERCENT) /
+            TOTAL_PERCENT;
         uint256 dexFeeAmount = totalBalance - burnFeeAmount;
 
         emit FeesSplit(dexFeeAmount, burnFeeAmount);
@@ -60,7 +64,8 @@ contract SwapFeeManager is Ownable {
         uint256 totalBalance = token.balanceOf(address(this));
         require(totalBalance > 0, "No token fees to split");
 
-        uint256 burnFeeAmount = (totalBalance * 25) / 100;
+        uint256 burnFeeAmount = (totalBalance * BURN_FEE_PERCENT) /
+            TOTAL_PERCENT;
         uint256 dexFeeAmount = totalBalance - burnFeeAmount;
 
         emit FeesSplit(dexFeeAmount, burnFeeAmount);
