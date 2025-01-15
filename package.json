@@ -15,8 +15,8 @@
     "ripemd160": "^2.0.1"
   },
   "devDependencies": {
-    "hardhat": "^2.19.4",
-    "@nomicfoundation/hardhat-ethers": "^3.0.5",
+    "hardhat": "^2.22.18",
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "ethers": "^6.10.0"
   }
 }

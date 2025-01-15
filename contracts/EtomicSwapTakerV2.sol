@@ -96,7 +96,6 @@ contract EtomicSwapTakerV2 {
             "ERC20 v2 payment is already initialized"
         );
         require(amount > 0, "Amount must not be zero");
-        require(dexFee > 0, "Dex fee must not be zero");
         require(receiver != address(0), "Receiver must not be zero address");
 
         bytes20 paymentHash = ripemd160(
