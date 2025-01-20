@@ -1,17 +1,19 @@
-pragma solidity ^0.5.0;
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.20;
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Migrations is Ownable {
-  uint public last_completed_migration;
+  uint256 public lastCompletedMigration;
 
-  constructor() public { }
+  constructor() Ownable(msg.sender) {}
 
-  function setCompleted(uint completed) public onlyOwner {
-    last_completed_migration = completed;
+  function setCompleted(uint256 completed) public onlyOwner {
+    lastCompletedMigration = completed;
   }
 
-  function upgrade(address new_address) public onlyOwner {
-    Migrations upgraded = Migrations(new_address);
-    upgraded.setCompleted(last_completed_migration);
+  function upgrade(address newAddress) public onlyOwner {
+    Migrations upgraded = Migrations(newAddress);
+    upgraded.setCompleted(lastCompletedMigration);
   }
 }

@@ -1,24 +1,22 @@
 {
   "name": "ETOMIC_SWAP",
   "version": "1.0.0",
-  "description": "Etomic swap smart contract and helpers",
+  "description": "Etomic swap smart contracts and helpers",
   "main": "index.js",
   "scripts": {
-    "rpc": "node startRPC.js",
-    "test": "truffle test",
-    "merge": "node node_modules/sol-merger/bin/sol-merger.js './contracts/*.sol' ./merge"
+    "test": "npx hardhat test"
   },
   "author": "ortgma@gmail.com",
   "license": "ISC",
   "dependencies": {
-    "chai": "^4.1.2",
+    "chai": "^4.3.10",
     "chai-as-promised": "^7.1.1",
-    "ganache-cli": "^6.2.5",
-    "openzeppelin-solidity": "https://github.com/OpenZeppelin/openzeppelin-solidity.git#release-v2.1.0-solc-0.5",
-    "request": "^2.83.0",
-    "request-promise-native": "^1.0.5",
-    "ripemd160": "^2.0.1",
-    "sol-merger": "^0.1.0",
-    "web3": "^1.0.0-beta.27"
+    "@openzeppelin/contracts": "^5.0.0",
+    "ripemd160": "^2.0.1"
+  },
+  "devDependencies": {
+    "hardhat": "^2.22.18",
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "ethers": "^6.10.0"
   }
 }
