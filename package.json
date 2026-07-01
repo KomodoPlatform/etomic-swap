@@ -9,7 +9,10 @@
     "deploy:v1": "npx hardhat ignition deploy ignition/modules/EtomicSwapV1.js --strategy create2 --verify",
     "deploy:v1:sepolia": "npx hardhat ignition deploy ignition/modules/EtomicSwapV1.js --network sepolia --strategy create2 --verify",
     "deploy:v1:mainnet": "npx hardhat ignition deploy ignition/modules/EtomicSwapV1.js --network mainnet --strategy create2 --verify",
-    "verify:salt": "node scripts/verify-createx-create2.mjs"
+    "verify:salt": "node scripts/verify-createx-create2.mjs",
+    "tronbox:compile": "npx tronbox compile",
+    "tronbox:migrate:nile": "npx tronbox migrate --network nile",
+    "tronbox:migrate:mainnet": "npx tronbox migrate --network mainnet"
   },
   "license": "ISC",
   "dependencies": {
