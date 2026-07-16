@@ -124,7 +124,15 @@ contract EtomicSwapTron {
         if (tokenAddress == address(0)) {
             payable(msg.sender).transfer(amount);
         } else {
-            IERC20(tokenAddress).safeTransfer(msg.sender, amount);
+            // Some tokens (e.g. USDT on TRON) return bool(false) from
+            // transfer() even on success.  We ignore the bool return
+            // entirely and verify via the receiver's balance change.
+            uint256 balanceBefore = IERC20(tokenAddress).balanceOf(msg.sender);
+            IERC20(tokenAddress).transfer(msg.sender, amount);
+            require(
+                IERC20(tokenAddress).balanceOf(msg.sender) == balanceBefore + amount,
+                "Token transfer did not increase balance"
+            );
         }
     }
 
@@ -162,7 +170,12 @@ contract EtomicSwapTron {
         if (tokenAddress == address(0)) {
             payable(msg.sender).transfer(amount);
         } else {
-            IERC20(tokenAddress).safeTransfer(msg.sender, amount);
+            uint256 balanceBefore = IERC20(tokenAddress).balanceOf(msg.sender);
+            IERC20(tokenAddress).transfer(msg.sender, amount);
+            require(
+                IERC20(tokenAddress).balanceOf(msg.sender) == balanceBefore + amount,
+                "Token transfer did not increase balance"
+            );
         }
     }
 }
