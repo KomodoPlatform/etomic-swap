@@ -9,23 +9,27 @@
     "deploy:v1": "npx hardhat ignition deploy ignition/modules/EtomicSwapV1.js --strategy create2 --verify",
     "deploy:v1:sepolia": "npx hardhat ignition deploy ignition/modules/EtomicSwapV1.js --network sepolia --strategy create2 --verify",
     "deploy:v1:mainnet": "npx hardhat ignition deploy ignition/modules/EtomicSwapV1.js --network mainnet --strategy create2 --verify",
-    "verify:salt": "node scripts/verify-createx-create2.mjs"
+    "verify:salt": "node scripts/verify-createx-create2.mjs",
+    "tronbox:compile": "tronbox compile",
+    "tronbox:migrate:nile": "tronbox migrate --network nile",
+    "tronbox:migrate:mainnet": "tronbox migrate --network mainnet"
   },
   "license": "ISC",
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0"
   },
   "devDependencies": {
-    "hardhat": "^2.26.0",
     "@nomicfoundation/hardhat-ethers": "^3.1.0",
     "@nomicfoundation/hardhat-ignition": "^0.15.16",
     "@nomicfoundation/hardhat-ignition-ethers": "^0.15.16",
-    "@nomicfoundation/ignition-core": "^0.15.15",
     "@nomicfoundation/hardhat-verify": "^2.0.13",
-    "dotenv": "^16.4.5",
-    "ethers": "^6.14.0",
+    "@nomicfoundation/ignition-core": "^0.15.15",
     "chai": "^4.3.10",
     "chai-as-promised": "^7.1.1",
-    "ripemd160": "^2.0.3"
-  }
-}
+    "dotenv": "^16.4.5",
+    "ethers": "^6.14.0",
+    "hardhat": "^2.26.0",
+    "ripemd160": "^2.0.3",
+    "tronbox": "4.9.0",
+    "tronweb": "^6.4.0"
+  }}

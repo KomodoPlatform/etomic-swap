@@ -5,10 +5,6 @@ const {
     ethers
 } = require("hardhat");
 const crypto = require('crypto');
-const RIPEMD160 = require('ripemd160');
-const {
-    AbiCoder
-} = require("ethers");
 
 require('chai')
     .use(require('chai-as-promised'))
@@ -17,19 +13,7 @@ require('chai')
 const INVALID_HASH = 'Invalid paymentHash';
 const INVALID_PAYMENT_STATE = 'Invalid payment state. Must be PaymentSent';
 const INVALID_TIMESTAMP = 'Current timestamp didn\'t exceed payment lock time';
-const UNSUPPORTED_VALUE = 'unsupported addressable value (argument="target", value=null, code=INVALID_ARGUMENT, version=6.16.0)';
 
-/**
- * Advances the Ethereum Virtual Machine (EVM) time by a specified amount and then mines a new block.
- *
- * @param {number} increaseAmount The amount of time to advance in seconds.
- *
- * This function is used in Ethereum smart contract testing to simulate the passage of time. In the EVM,
- * time is measured based on block timestamps. The 'evm_increaseTime' method increases the EVM's internal
- * clock, but this change only affects the next mined block. Therefore, 'evm_mine' is called immediately
- * afterwards to mine a new block, ensuring that the blockchain's timestamp is updated to reflect the time
- * change. This approach is essential for testing time-dependent contract features like lock periods or deadlines.
- */
 async function advanceTimeAndMine(increaseAmount) {
     await ethers.provider.send("evm_increaseTime", [increaseAmount]);
     await ethers.provider.send("evm_mine");
@@ -44,7 +28,7 @@ const id = '0x' + crypto.randomBytes(32).toString('hex');
 const [PAYMENT_UNINITIALIZED, PAYMENT_SENT, RECEIVER_SPENT, SENDER_REFUNDED] = [0, 1, 2, 3];
 
 const secret = crypto.randomBytes(32);
-const secretHash = '0x' + new RIPEMD160().update(crypto.createHash('sha256').update(secret).digest()).digest('hex');
+const secretHash = '0x' + crypto.createHash('sha256').update(secret).digest('hex');
 const secretHex = '0x' + secret.toString('hex');
 
 const invalidSecret = crypto.randomBytes(32);
@@ -52,13 +36,13 @@ const invalidSecretHex = '0x' + invalidSecret.toString('hex');
 
 const zeroAddr = '0x0000000000000000000000000000000000000000';
 
-describe("EtomicSwap", function() {
+describe("EtomicSwapTron", function() {
 
     beforeEach(async function() {
         accounts = await ethers.getSigners();
 
-        EtomicSwap = await ethers.getContractFactory("EtomicSwap");
-        etomicSwap = await EtomicSwap.deploy();
+        EtomicSwapTron = await ethers.getContractFactory("EtomicSwapTron");
+        etomicSwap = await EtomicSwapTron.deploy();
         await etomicSwap.waitForDeployment();
 
         Token = await ethers.getContractFactory("Token");
@@ -133,6 +117,53 @@ describe("EtomicSwap", function() {
         await etomicSwap.connect(accounts[0]).ethPayment(...params, {
             value: ethers.parseEther('1')
         }).should.be.rejectedWith("ETH payment already initialized");
+    });
+
+    it('should store correct SHA-256 paymentHash for ETH payment', async function() {
+        const lockTime = await currentEvmTime() + 1000;
+        const amount = ethers.parseEther('1');
+
+        await etomicSwap.connect(accounts[0]).ethPayment(
+            id, accounts[1].address, secretHash, lockTime,
+            { value: amount }
+        ).should.be.fulfilled;
+
+        const payment = await etomicSwap.payments(id);
+        const storedHash = payment[0];
+
+        // Compute expected paymentHash off-chain using solidityPacked + sha256
+        const packed = ethers.solidityPacked(
+            ['address', 'address', 'bytes32', 'address', 'uint256'],
+            [accounts[1].address, accounts[0].address, secretHash, zeroAddr, amount]
+        );
+        const expectedHash = '0x' + crypto.createHash('sha256')
+            .update(Buffer.from(packed.slice(2), 'hex'))
+            .digest('hex');
+
+        expect(storedHash).to.equal(expectedHash);
+    });
+
+    it('should store correct SHA-256 paymentHash for ERC20 payment', async function() {
+        const lockTime = await currentEvmTime() + 1000;
+        const amount = ethers.parseEther('1');
+
+        await token.approve(etomicSwap.target, amount);
+        await etomicSwap.connect(accounts[0]).erc20Payment(
+            id, amount, token.target, accounts[1].address, secretHash, lockTime
+        ).should.be.fulfilled;
+
+        const payment = await etomicSwap.payments(id);
+        const storedHash = payment[0];
+
+        const packed = ethers.solidityPacked(
+            ['address', 'address', 'bytes32', 'address', 'uint256'],
+            [accounts[1].address, accounts[0].address, secretHash, token.target, amount]
+        );
+        const expectedHash = '0x' + crypto.createHash('sha256')
+            .update(Buffer.from(packed.slice(2), 'hex'))
+            .digest('hex');
+
+        expect(storedHash).to.equal(expectedHash);
     });
 
     it('should allow to send ERC20 payment', async function() {
@@ -344,7 +375,7 @@ describe("EtomicSwap", function() {
         let etomicSwapRunner1 = etomicSwap.connect(accounts[1]);
 
         // Should not allow to spend uninitialized payment
-        await etomicSwapRunner1.receiverSpend(id, ethers.parseEther('1'), secretHex, token.address, accounts[0].address).should.be.rejectedWith(UNSUPPORTED_VALUE);
+        await etomicSwapRunner1.receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address).should.be.rejectedWith(INVALID_PAYMENT_STATE);
 
         await token.approve(etomicSwap.target, ethers.parseEther('1'));
         // Make the ERC20 payment
@@ -360,7 +391,7 @@ describe("EtomicSwap", function() {
         await etomicSwapRunner0.receiverSpend(id, ethers.parseEther('1'), secretHex, token.target, accounts[0].address).should.be.rejectedWith(INVALID_HASH);
 
         // Success spend
-        const balanceBefore = await token.balanceOf(accounts[1]);
+        const balanceBefore = await token.balanceOf(accounts[1].address);
 
         const gasPrice = ethers.parseUnits('100', 'gwei');
 
@@ -455,7 +486,7 @@ describe("EtomicSwap", function() {
             gasPrice
         }).should.be.fulfilled;
 
-        const balanceAfter = await token.balanceOf(accounts[1]);
+        const balanceAfter = await token.balanceOf(accounts[1].address);
         // Check receiver balance
         expect((balanceAfter - balanceBefore)).to.equal(ethers.parseEther('1'));
 
