@@ -10,9 +10,9 @@
     "deploy:v1:sepolia": "npx hardhat ignition deploy ignition/modules/EtomicSwapV1.js --network sepolia --strategy create2 --verify",
     "deploy:v1:mainnet": "npx hardhat ignition deploy ignition/modules/EtomicSwapV1.js --network mainnet --strategy create2 --verify",
     "verify:salt": "node scripts/verify-createx-create2.mjs",
-    "tronbox:compile": "npx tronbox compile",
-    "tronbox:migrate:nile": "npx tronbox migrate --network nile",
-    "tronbox:migrate:mainnet": "npx tronbox migrate --network mainnet"
+    "tronbox:compile": "tronbox compile",
+    "tronbox:migrate:nile": "tronbox migrate --network nile",
+    "tronbox:migrate:mainnet": "tronbox migrate --network mainnet"
   },
   "license": "ISC",
   "dependencies": {
@@ -30,6 +30,6 @@
     "ethers": "^6.14.0",
     "hardhat": "^2.26.0",
     "ripemd160": "^2.0.3",
+    "tronbox": "4.9.0",
     "tronweb": "^6.4.0"
-  }
-}
+  }}
